@@ -6,22 +6,23 @@
 =============================================================================
 """
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from contextlib import asynccontextmanager
-from app.core.config import settings
-from app.database import engine, Base
-from app.cache import redis_manager
-from app.api.api import api_router
-from app.models import Document, Log, Folder 
-from app.db_init import init_db
-import os
 import logging
 import time
 import uuid
-from app.logger import logger, request_id_ctx, user_id_ctx, ip_address_ctx
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from app.core.config import settings
+from app.database import engine
+from app.cache import redis_manager
+from app.api.api import api_router
+from app.db_init import init_db
+from app.logger import logger, InterceptHandler, request_id_ctx, user_id_ctx, ip_address_ctx
 
 # =============================================================================
 # 生命周期管理
@@ -33,31 +34,42 @@ async def lifespan(app: FastAPI):
     应用生命周期管理
     
     启动时:
-    1. 初始化 Redis 连接
-    2. 执行数据库初始化
+    1. 配置 Loguru 拦截标准 Logging
+    2. 初始化 Redis 连接
+    3. 执行数据库初始化
     
     关闭时:
     1. 关闭 Redis 连接
+    2. 关闭数据库连接池
     """
+    # 1. 配置日志拦截 (将 uvicorn/fastapi 日志重定向到 loguru)
+    logging.getLogger().handlers = [InterceptHandler()]
+    logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
+    logging.getLogger("uvicorn.error").handlers = [InterceptHandler()]
+    
     # 启动阶段
     logger.info("应用正在启动...", extra={"extra_data": {"event": "startup"}})
 
-    await redis_manager.init_redis()
-    
-    # 运行数据库初始化和迁移检查
-    await init_db()
-    
-    print("数据库初始化完成，连接成功！", flush=True)
-    logger.info("数据库连接成功", extra={"extra_data": {"event": "db_connected"}})
+    try:
+        await redis_manager.init_redis()
+        
+        # 运行数据库初始化和迁移检查 (自动建表)
+        await init_db()
+        
+        print("数据库初始化完成，连接成功！", flush=True)
+        logger.info("数据库连接成功", extra={"extra_data": {"event": "db_connected"}})
+    except Exception as e:
+        logger.error(f"启动过程中发生错误: {e}")
+        # 不一定要抛出异常，取决于是否希望应用在数据库失败时仍能启动
+        # raise e 
     
     yield
+    
     # 关闭阶段
     logger.info("应用正在关闭...", extra={"extra_data": {"event": "shutdown"}})
     await redis_manager.close()
     
     # 关闭数据库连接池
-    # 这一步至关重要，否则会导致 "SAWarning: The garbage collector is trying to clean up non-checked-in connection"
-    # 并导致 uvicorn 关闭时卡顿
     await engine.dispose()
     logger.info("数据库连接池已关闭", extra={"extra_data": {"event": "db_disconnected"}})
 
@@ -110,8 +122,8 @@ async def log_requests(request: Request, call_next):
     url = request.url.path
     method = request.method
     
-    # 排除静态资源日志，避免刷屏
-    if not url.startswith("/static"):
+    # 排除静态资源和健康检查日志，避免刷屏
+    if not url.startswith("/static") and url != "/health":
         logger.info(f"请求开始: {method} {url}", extra={
             "extra_data": {
                 "event": "request_start",
@@ -125,7 +137,7 @@ async def log_requests(request: Request, call_next):
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000 # ms
         
-        if not url.startswith("/static"):
+        if not url.startswith("/static") and url != "/health":
             logger.info(f"请求结束: {response.status_code}", extra={
                 "duration": process_time,
                 "extra_data": {
@@ -159,13 +171,12 @@ async def log_requests(request: Request, call_next):
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # =============================================================================
-# 根路由 (前端入口)
+# 根路由 (前端入口 - 如果需要)
 # =============================================================================
 
 @app.get("/")
 async def read_root():
     """
-    返回前端主页
+    返回 API 信息或前端入口
     """
-    index_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "index.html")
-    return FileResponse(index_path)
+    return {"message": f"Welcome to {settings.PROJECT_NAME} API"}

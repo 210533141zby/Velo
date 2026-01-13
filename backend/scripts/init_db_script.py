@@ -1,9 +1,11 @@
 import asyncio
 import os
 import sys
+from pathlib import Path
 
 # 添加 backend 目录到 python path
-sys.path.append(os.path.join(os.path.dirname(__file__), "app"))
+# backend/scripts/init_db_script.py -> backend/scripts -> backend
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from app.db_init import init_db
 
