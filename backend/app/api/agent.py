@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas import ChatRequest, ChatResponse
-from app.service import AgentService
+from app.services.agent_service import AgentService
 
 router = APIRouter()
 

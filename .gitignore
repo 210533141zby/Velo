@@ -16,6 +16,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.vercel/
+.vercel
+vercel.json
 
 # IDE
 .idea/
@@ -25,3 +28,10 @@ pnpm-debug.log*
 
 # OS
 Thumbs.db
+
+# AI / Tools
+.trae/
+.trae
+.lingma/
+.lingma
+backend/chroma_db/

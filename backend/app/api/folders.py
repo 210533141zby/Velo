@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db, AsyncSessionLocal
 from app.schemas import FolderCreate, FolderResponse
-from app.service import FolderService, LogService
+from app.services.folder_service import FolderService
+from app.services.log_service import LogService
 
 router = APIRouter()
 

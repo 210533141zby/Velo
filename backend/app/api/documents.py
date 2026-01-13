@@ -13,7 +13,8 @@ from typing import List
 
 from app.database import get_db, AsyncSessionLocal
 from app.schemas import DocumentCreate, DocumentResponse, DocumentSummary
-from app.service import DocumentService, LogService
+from app.services.document_service import DocumentService
+from app.services.log_service import LogService
 
 router = APIRouter()
 
