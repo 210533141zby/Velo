@@ -103,12 +103,14 @@ ul[data-type="taskList"] li {
   align-items: flex-start;
   margin-bottom: 0.5rem;
 }
-ul[data-type="taskList"] li > label {
-  flex: 0 0 auto;
-  margin-right: 0.5rem;
-  user-select: none;
-  margin-top: 0.2rem;
+
+/* 表格交互增强 */
+.prose table:hover {
+  box-shadow: 0 0 0 2px #D06847; /* 鼠标悬停时显示陶土色边框，提示可点击 */
+  transition: box-shadow 0.2s;
+  cursor: text;
 }
-ul[data-type="taskList"] li > div {
-  flex: 1 1 auto;
+/* 选中表格时 */
+.prose table.ProseMirror-selectednode {
+  outline: 3px solid #D06847;
 }
