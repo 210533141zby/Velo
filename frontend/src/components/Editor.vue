@@ -91,7 +91,7 @@ onUnmounted(() => {
  */
 const registerCopilotProvider = () => {
   completionProvider.value = monaco.languages.registerInlineCompletionsProvider('markdown', {
-    provideInlineCompletions: async (model, position, context, token) => {
+    provideInlineCompletions: async (model, position, _context, token) => {
       // 1. 如果正在输入中文，直接返回空
       if (isComposing) {
         return { items: [] };
@@ -173,7 +173,7 @@ const registerCopilotProvider = () => {
         return { items: [] };
       }
     },
-    freeInlineCompletions(items) {
+    freeInlineCompletions() {
       // 释放资源
     }
   });

@@ -62,9 +62,14 @@ class AgentService(BaseService):
     async def index_document(self, doc_id: int, title: str, content: str):
         """
         索引文档 (通常作为后台任务运行)
-        将文档拆分为片段并存入向量数据库
+        将文档拆分为片段并存入向量库
         使用 Markdown 专用切分器以优化结构化信息的保留
         """
+        # 检查是否配置了有效的 API Key
+        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("sk-placeholder"):
+            logger.warning(f"未配置有效的 OpenAI API Key，跳过文档索引 (doc_id={doc_id})")
+            return
+
         if not content:
             return
 

@@ -4,7 +4,7 @@ import FileTree from './components/Sidebar/FileTree.vue';
 import TiptapEditor from './components/Editor/TiptapEditor.vue';
 import ChatPanel from './components/Copilot/ChatPanel.vue';
 import StatusBar from './components/Layout/StatusBar.vue';
-import { PanelLeft, Sparkles, Save, Share, Settings, Loader2, Check, Bot } from 'lucide-vue-next';
+import { PanelLeft, Sparkles, Save, Share, Loader2, Check, Bot, File } from 'lucide-vue-next';
 
 const store = useEditorStore();
 </script>
@@ -92,7 +92,16 @@ const store = useEditorStore();
 
       <!-- Editor Area -->
       <div class="flex-1 relative overflow-hidden bg-white">
-        <TiptapEditor />
+        <TiptapEditor 
+          v-if="store.currentDocument"
+          :modelValue="store.currentDocument.content"
+          @update:modelValue="(val) => store.updateContent(val)"
+        />
+        <div v-else class="flex flex-col items-center justify-center h-full text-stone-400 bg-stone-50/50">
+          <File class="w-12 h-12 mb-4 opacity-20" />
+          <p class="text-lg font-medium opacity-60">No document selected</p>
+          <p class="text-sm opacity-40 mt-1">Select a file from the sidebar to start editing</p>
+        </div>
       </div>
 
       <!-- Status Bar -->

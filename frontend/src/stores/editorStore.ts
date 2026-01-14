@@ -139,6 +139,11 @@ export const useEditorStore = defineStore('editor', () => {
     isCopilotOpen.value = !isCopilotOpen.value;
   }
 
+  function updateStats(words: number, line: number, col: number) {
+    wordCount.value = words;
+    cursorPosition.value = { line, col };
+  }
+
   return {
     documents,
     currentDocument,
@@ -156,6 +161,7 @@ export const useEditorStore = defineStore('editor', () => {
     updateContent,
     updateTitle,
     toggleSidebar,
-    toggleCopilot
+    toggleCopilot,
+    updateStats
   };
 });
