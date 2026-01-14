@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useEditor, EditorContent } from '@tiptap/vue-3'
+import { Extension } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import Typography from '@tiptap/extension-typography'
@@ -47,6 +48,45 @@ const updateStats = (editor: any) => {
   store.updateStats(wordCount, line, col)
 }
 
+
+// 修复表格删除体验：允许 Backspace/Delete 删除选中的表格
+const TableBackspaceFix = Extension.create({
+  name: 'tableBackspaceFix',
+  addKeyboardShortcuts() {
+    return {
+      Backspace: () => {
+        const { selection } = this.editor.state
+        // 1. 如果选中了表格，直接删除
+        if ((selection as any).node?.type.name === 'table') {
+          this.editor.commands.deleteSelection()
+          return true
+        }
+        // 2. 如果光标在表格紧后方，Backspace 选中表格
+        const { $from, empty } = selection
+        if (empty && $from.nodeBefore?.type.name === 'table') {
+          this.editor.commands.setNodeSelection($from.pos - $from.nodeBefore.nodeSize)
+          return true
+        }
+        return false
+      },
+      Delete: () => {
+        const { selection } = this.editor.state
+        if ((selection as any).node?.type.name === 'table') {
+          this.editor.commands.deleteSelection()
+          return true
+        }
+        // 如果光标在表格紧前方，Delete 选中表格
+        const { $from, empty } = selection
+        if (empty && $from.nodeAfter?.type.name === 'table') {
+          this.editor.commands.setNodeSelection($from.pos)
+          return true
+        }
+        return false
+      }
+    }
+  }
+})
+
 const editor = useEditor({
   content: props.modelValue, // 直接传入，让 extension 处理 hydration
   extensions: [
@@ -61,13 +101,14 @@ const editor = useEditor({
     }), 
     Typography, 
     Image, 
-    Table.configure({ resizable: true }), 
+    Table.configure({ resizable: true, allowTableNodeSelection: true }), 
     TableRow, 
     TableHeader, 
     TableCell, 
     TaskList, 
-    TaskItem.configure({ nested: true }), 
-  ], 
+    TaskItem.configure({ nested: true }),
+    TableBackspaceFix, 
+  ],  
   editorProps: { 
     attributes: { 
       class: 'prose prose-stone max-w-none focus:outline-none min-h-[calc(100vh-12rem)] px-12 py-10 bg-white shadow-sm mx-auto', 
