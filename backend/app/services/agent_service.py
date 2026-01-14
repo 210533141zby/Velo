@@ -50,6 +50,10 @@ def get_vector_store():
         )
     return _vector_store_instance
 
+import hashlib
+import json
+from app.cache import redis_manager
+
 class AgentService(BaseService):
     """
     AI 代理服务类
@@ -58,6 +62,21 @@ class AgentService(BaseService):
     def __init__(self, db: AsyncSession):
         super().__init__(db)
         self.vector_store = get_vector_store()
+
+    async def ask_ai(self, query: str) -> str:
+        """
+        纯 AI 问答 (不使用 RAG)
+        """
+        prompt = f"""
+        You are a helpful assistant. Answer the following question.
+        
+        Question: 
+        {query}
+        
+        Answer:
+        """
+        response = await llm.ainvoke(prompt)
+        return response.content
 
     async def index_document(self, doc_id: int, title: str, content: str):
         """
@@ -214,22 +233,37 @@ class AgentService(BaseService):
 
     async def rag_qa(self, query: str) -> dict:
         """
-        RAG 问答
+        RAG 问答 (带 Redis 缓存)
         
         流程:
-        1. 在向量数据库中检索相关文档
-        2. 构建包含上下文的 Prompt
-        3. 调用 LLM 生成回答
+        1. 检查 Redis 缓存
+        2. 在向量数据库中检索相关文档
+        3. 构建包含上下文的 Prompt
+        4. 调用 LLM 生成回答
+        5. 写入 Redis 缓存
         """
+        # 1. 生成缓存 Key
+        query_hash = hashlib.md5(query.encode("utf-8")).hexdigest()
+        cache_key = f"rag:response:{query_hash}"
+        
+        # 2. 尝试读取缓存
+        cached_result = await redis_manager.get(cache_key)
+        if cached_result:
+            logger.info(f"[CACHE HIT] RAG 问答命中缓存: {query}")
+            try:
+                return json.loads(cached_result)
+            except json.JSONDecodeError:
+                pass # 缓存损坏，继续执行
+
         try:
-            # 1. 检索
+            # 3. 检索
             docs = await run_in_threadpool(
                 self.vector_store.similarity_search, 
                 query, 
                 k=3
             )
             
-            # 2. 构建上下文
+            # 4. 构建上下文
             context = "\n\n".join([d.page_content for d in docs])
             
             # 构建来源列表 (List[Dict])
@@ -244,7 +278,7 @@ class AgentService(BaseService):
                     })
                     seen_sources.add(source_name)
             
-            # 3. 生成回答
+            # 5. 生成回答
             prompt = f"""
             You are a knowledgeable assistant. Answer the question based on the following context. 
             If the answer is not in the context, say "I don't know based on the provided information".
@@ -259,6 +293,11 @@ class AgentService(BaseService):
             """
             response = await llm.ainvoke(prompt)
             
+            result_data = {
+                "response": response.content,
+                "sources": sources
+            }
+
             logger.info(f"RAG 问答完成: {query}", extra={
                 "extra_data": {
                     "event": "rag_qa_success",
@@ -267,10 +306,10 @@ class AgentService(BaseService):
                 }
             })
             
-            return {
-                "response": response.content,
-                "sources": sources
-            }
+            # 6. 写入缓存 (1小时过期)
+            await redis_manager.set(cache_key, json.dumps(result_data), ex=3600)
+            
+            return result_data
         except Exception as e:
             logger.error(f"RAG 问答失败: {e}", exc_info=True, extra={
                 "extra_data": {

@@ -39,15 +39,22 @@ async def chat_with_agent(
     - 支持普通对话模式
     - 支持 RAG (检索增强生成) 模式，基于本地知识库回答
     """
-    # 暂时直接使用 RAG 逻辑，未来可根据 request.use_rag 分离
     user_query = request.messages[-1].content
     
-    result = await agent_service.rag_qa(user_query)
-
-    return ChatResponse(
-        response=result.get("response", ""),
-        sources=result.get("sources")
-    )
+    # 根据请求参数决定是否使用 RAG
+    if request.use_rag:
+        result = await agent_service.rag_qa(user_query)
+        return ChatResponse(
+            response=result.get("response", ""),
+            sources=result.get("sources")
+        )
+    else:
+        # 纯 AI 对话
+        response_text = await agent_service.ask_ai(user_query)
+        return ChatResponse(
+            response=response_text,
+            sources=None
+        )
 
 @router.post("/polish")
 async def polish_content(

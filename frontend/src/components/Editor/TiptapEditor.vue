@@ -290,7 +290,7 @@ onBeforeUnmount(() => editor.value?.destroy())
     </div>
 
     <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
-      <div class="max-w-4xl mx-auto w-full">
+      <div class="max-w-5xl mx-auto w-full">
         <editor-content
           :editor="editor"
           class="h-full"

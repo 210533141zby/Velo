@@ -4,9 +4,30 @@ import FileTree from './components/Sidebar/FileTree.vue';
 import TiptapEditor from './components/Editor/TiptapEditor.vue';
 import ChatPanel from './components/Copilot/ChatPanel.vue';
 import StatusBar from './components/Layout/StatusBar.vue';
-import { PanelLeft, Sparkles, Save, Share, Loader2, Check, Bot, File } from 'lucide-vue-next';
+import { PanelLeft, Sparkles, Save, Share, Loader2, Check, Bot, File, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { onMounted, onUnmounted } from 'vue';
 
 const store = useEditorStore();
+
+const handleKeydown = (e: KeyboardEvent) => {
+  // Toggle AI Panel: Ctrl/Cmd + \
+  if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+    e.preventDefault();
+    store.toggleCopilot();
+  }
+  // Close AI Panel: Esc (only if open)
+  if (e.key === 'Escape' && store.isCopilotOpen) {
+    store.toggleCopilot();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <template>
@@ -108,10 +129,21 @@ const store = useEditorStore();
       <StatusBar />
     </main>
 
+    <!-- Floating Toggle Handle -->
+    <button
+      @click="store.toggleCopilot"
+      class="absolute top-1/2 -translate-y-1/2 z-30 w-5 h-12 flex items-center justify-center bg-surface border border-border-line shadow-md cursor-pointer text-stone-400 hover:text-[#D06847] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] rounded-l-lg border-r-0"
+      :class="store.isCopilotOpen ? 'right-[350px]' : 'right-0'"
+      title="Toggle AI Assistant (Ctrl + \)"
+    >
+      <ChevronRight v-if="store.isCopilotOpen" class="w-3 h-3" />
+      <ChevronLeft v-else class="w-3 h-3" />
+    </button>
+
     <!-- Copilot Panel -->
     <aside 
-      class="flex-shrink-0 transition-all duration-300 ease-in-out border-l border-border-line bg-surface"
-      :class="store.isCopilotOpen ? 'w-[350px]' : 'w-0 border-none overflow-hidden opacity-0'"
+      class="flex-shrink-0 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] border-l border-border-line bg-surface z-40"
+      :class="store.isCopilotOpen ? 'w-[350px] opacity-100' : 'w-0 border-none overflow-hidden opacity-0'"
     >
       <ChatPanel />
     </aside>
