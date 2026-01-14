@@ -61,12 +61,30 @@ const TableBackspaceFix = Extension.create({
           this.editor.commands.deleteSelection()
           return true
         }
-        // 2. 如果光标在表格紧后方，Backspace 选中表格
+        
         const { $from, empty } = selection
-        if (empty && $from.nodeBefore?.type.name === 'table') {
-          this.editor.commands.setNodeSelection($from.pos - $from.nodeBefore.nodeSize)
-          return true
+        
+        // 2. 如果光标在 Block (如段落) 的开头，且前一个节点是表格
+        if (empty && $from.parentOffset === 0) {
+           // 获取当前 Block 之前的那个节点
+           // $from.before() 返回当前 Block 的起始位置（即 Block 之前的 Pos）
+           const prevNodePos = $from.before() - 1
+           if (prevNodePos >= 0) {
+              // 检查前一个节点是否是表格
+              // 使用 child(index-1) 更稳健
+              const index = $from.index($from.depth - 1)
+              if (index > 0) {
+                const prevNode = $from.node($from.depth - 1).child(index - 1)
+                if (prevNode.type.name === 'table') {
+                  // 选中表格
+                  const tablePos = $from.before() - prevNode.nodeSize
+                  this.editor.commands.setNodeSelection(tablePos)
+                  return true
+                }
+             }
+           }
         }
+        
         return false
       },
       Delete: () => {
