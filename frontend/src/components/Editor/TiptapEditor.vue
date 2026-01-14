@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useEditor, EditorContent } from '@tiptap/vue-3'
-import { BubbleMenu } from '@tiptap/vue-3/menus'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import Typography from '@tiptap/extension-typography'
@@ -242,17 +241,6 @@ onBeforeUnmount(() => editor.value?.destroy())
       </div>
     </div>
 
-    <!-- Bubble Menu (Optional but kept for selection context) -->
-    <bubble-menu
-      v-if="editor && !editor.isActive('table')"
-      :editor="editor"
-      :tippy-options="{ duration: 100 }"
-      class="bg-white border border-stone-200 shadow-xl rounded-lg overflow-hidden flex divide-x divide-stone-100"
-    >
-      <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'bg-stone-100': editor.isActive('bold') }" class="p-2 hover:bg-stone-50 text-sm font-medium text-stone-600">加粗</button>
-      <button @click="editor.chain().focus().toggleItalic().run()" :class="{ 'bg-stone-100': editor.isActive('italic') }" class="p-2 hover:bg-stone-50 text-sm font-medium text-stone-600">斜体</button>
-      <button @click="editor.chain().focus().toggleCodeBlock().run()" :class="{ 'bg-stone-100': editor.isActive('codeBlock') }" class="p-2 hover:bg-stone-50 text-sm font-medium text-stone-600">代码块</button>
-    </bubble-menu>
   </div>
 </template>
 

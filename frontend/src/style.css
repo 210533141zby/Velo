@@ -105,12 +105,5 @@ ul[data-type="taskList"] li {
 }
 
 /* 表格交互增强 */
-.prose table:hover {
-  box-shadow: 0 0 0 2px #D06847; /* 鼠标悬停时显示陶土色边框，提示可点击 */
-  transition: box-shadow 0.2s;
-  cursor: text;
-}
-/* 选中表格时 */
-.prose table.ProseMirror-selectednode {
-  outline: 3px solid #D06847;
-}
+/* Removed hover and selected styles as per user request */
+
