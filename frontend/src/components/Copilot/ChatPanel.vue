@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { useEditorStore } from '../../stores/editorStore';
 import { X, Send, Bot, User as UserIcon, Database } from 'lucide-vue-next';
 
@@ -10,19 +10,6 @@ const isRAGMode = ref(false); // Default to AI Chat, toggle to RAG (Database)
 const messages = ref([
   { id: 1, role: 'ai', content: 'Hello! I am Velo AI. How can I help you edit this document today?' }
 ]);
-
-// Update initial message when mode changes
-watch(isRAGMode, (newVal) => {
-  messages.value = [
-    { 
-      id: Date.now(), 
-      role: 'ai', 
-      content: newVal 
-        ? '已切换到知识库模式 (RAG)。我现在会基于您的数据库文档回答问题。' 
-        : '已切换到 AI 助手模式。我可以帮您撰写、润色或回答一般性问题。'
-    }
-  ];
-});
 
 const sendMessage = () => {
   if (!inputValue.value.trim()) return;
@@ -54,17 +41,7 @@ const sendMessage = () => {
     <!-- Header -->
     <div class="h-14 flex items-center justify-between px-4 border-b border-stone-200 bg-white z-10">
       <div class="flex items-center space-x-2">
-        <!-- Toggle Button: Database vs AI -->
-        <button 
-          @click="isRAGMode = !isRAGMode"
-          class="flex items-center space-x-2 px-2 py-1.5 rounded-md transition-all duration-200"
-          :class="isRAGMode ? 'bg-[#D06847]/10 text-[#D06847]' : 'hover:bg-stone-100 text-stone-600'"
-          title="点击切换模式：知识库(RAG) / 通用AI"
-        >
-          <Database v-if="isRAGMode" class="w-4 h-4" />
-          <Bot v-else class="w-4 h-4" />
-          <span class="font-bold text-sm">{{ isRAGMode ? '知识库' : 'AI 助手' }}</span>
-        </button>
+        <span class="font-bold text-stone-700">Velo Assistant</span>
       </div>
       
       <button 
@@ -122,8 +99,20 @@ const sendMessage = () => {
         </button>
       </div>
       <div class="mt-2 flex justify-between items-center px-1">
+        <!-- 知识库 Toggle -->
+        <button 
+          @click="isRAGMode = !isRAGMode"
+          class="flex items-center space-x-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors border"
+          :class="isRAGMode 
+            ? 'bg-[#D06847] text-white border-[#D06847]' 
+            : 'bg-white text-stone-500 border-stone-200 hover:border-[#D06847] hover:text-[#D06847]'"
+        >
+          <Database class="w-3.5 h-3.5" />
+          <span>知识库</span>
+        </button>
+        
         <span class="text-xs text-stone-400">
-          {{ isRAGMode ? '基于本地知识库回答' : 'Powered by LLM' }}
+          {{ isRAGMode ? '已启用知识库' : 'Powered by LLM' }}
         </span>
       </div>
     </div>
