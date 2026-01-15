@@ -2,8 +2,15 @@
 =============================================================================
 文件: folders.py
 描述: 文件夹管理接口
-      提供文件夹的创建、查询、层级结构获取等 RESTful API
-      所有业务逻辑已迁移至 Service 层，本文件仅负责路由和参数解析
+
+核心功能：
+1. 目录管理：提供文件夹的创建、查询接口。
+2. 结构树获取：支持获取完整目录树，或获取指定目录下的内容。
+3. 审计日志：在创建文件夹时，记录操作日志。
+
+依赖组件:
+- FolderService: 处理文件夹业务逻辑。
+- LogService: 处理日志记录。
 =============================================================================
 """
 
@@ -38,6 +45,10 @@ async def create_folder(
 ):
     """
     创建新文件夹
+    
+    Logic Flow:
+        1. **业务处理**: 调用 `folder_service.create_folder` 写入数据库。
+        2. **日志记录**: 后台任务记录 "CREATE FOLDER" 操作。
     """
     new_folder = await folder_service.create_folder(folder)
     
@@ -57,7 +68,10 @@ async def read_all_folders(
 ):
     """
     获取所有文件夹
-    用于构建完整的目录树结构
+    
+    Logic Flow:
+        获取系统中所有文件夹的扁平列表。
+        前端通常会拿到这个列表后，在浏览器端根据 `parent_id` 组装成树形结构。
     """
     return await folder_service.get_all_folders()
 
@@ -77,13 +91,19 @@ async def read_folder(
 
 @router.get("/{folder_id}/contents")
 async def read_folder_contents(
-    folder_id: int, # 注意：路由参数是 int，但如果是根目录可能需要特殊处理
+    folder_id: int,
     folder_service: FolderService = Depends(get_folder_service)
 ):
     """
     获取文件夹内容
-    同时返回该目录下的子文件夹和文档
-    如果 folder_id 为 0，则获取根目录内容
+    
+    Input:
+        folder_id: 文件夹 ID。如果传 0，则表示获取根目录内容。
+        
+    Logic Flow:
+        同时返回该目录下的：
+        1. 子文件夹列表 (folders)
+        2. 文档列表 (documents)
     """
     target_id = None if folder_id == 0 else folder_id
     return await folder_service.get_folder_contents(target_id)

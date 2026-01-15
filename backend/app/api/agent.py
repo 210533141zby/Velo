@@ -2,16 +2,18 @@
 =============================================================================
 文件: agent.py
 描述: AI 智能体 API 接口层
-      本模块作为 AgentService 的 HTTP 访问入口，遵循 RESTful 规范。
-      
-架构准则 (API Layer Responsibilities):
-1. **Request Parsing**: 使用 Pydantic 模型 (ChatRequest) 解析和校验请求体。
-2. **Dependency Injection**: 通过 `Depends(get_agent_service)` 获取 Service 实例。
-3. **Delegation**: 将业务逻辑完全委托给 `AgentService`，API 层不包含复杂的 if/else 业务判断。
-4. **Response Formatting**: 将 Service 返回的结果封装为标准 JSON 响应。
 
-依赖关系:
-- AgentService: 核心业务逻辑提供者。
+核心功能：
+1. 对话接口：提供 Chat、RAG 问答的统一入口。
+2. 内容辅助：提供润色 (Polish)、续写 (Complete) 等写作辅助功能。
+
+架构职责：
+1. 请求解析：使用 Pydantic 模型校验前端传来的 JSON 数据。
+2. 依赖注入：获取 AgentService 实例。
+3. 逻辑委托：将具体业务逻辑（如调用 OpenAI、查向量库）全权交给 Service 层处理。
+
+依赖组件:
+- AgentService: 核心 AI 业务逻辑提供者。
 =============================================================================
 """
 
@@ -51,11 +53,11 @@ async def chat_with_agent(
     与 AI 助手聊天接口
     
     Logic Flow:
-    1. **Extract Query**: 从请求体中提取用户最新的消息内容。
-    2. **Dispatch**: 根据 `request.use_rag` 标志位，决定调用 RAG 模式还是纯聊天模式。
-       - True -> `agent_service.rag_qa()`: 检索 + 生成。
-       - False -> `agent_service.ask_ai()`: 直接生成。
-    3. **Response**: 构造 `ChatResponse` 对象返回。
+        1. **提取问题**: 从请求体中拿出用户最后一条消息。
+        2. **模式分发**: 
+           - 如果 `use_rag=True`，调用 `rag_qa` (检索增强生成)。
+           - 如果 `use_rag=False`，调用 `ask_ai` (纯闲聊)。
+        3. **格式封装**: 将结果统一封装成 `ChatResponse` 返回给前端。
     """
     user_query = request.messages[-1].content
     
@@ -82,8 +84,11 @@ async def polish_content(
     """
     内容润色接口
     
-    Input: {"content": "原始文本"}
-    Output: {"result": "润色后的文本"}
+    Input: {"content": "写得很烂的原始文本"}
+    Output: {"result": "润色后的优美文本"}
+    
+    Logic Flow:
+        直接调用 Service 层的 `polish_text` 方法，让 AI 帮忙改写。
     """
     content = text.get("content", "")
     polished = await agent_service.polish_text(content)
@@ -97,8 +102,11 @@ async def complete_content(
     """
     内容续写接口
     
-    Input: {"content": "上下文文本"}
-    Output: {"result": "续写的文本"}
+    Input: {"content": "文章的上半部分..."}
+    Output: {"result": "AI 接着写的下半部分..."}
+    
+    Logic Flow:
+        直接调用 Service 层的 `complete_text` 方法，让 AI 根据上文猜下文。
     """
     content = text.get("content", "")
     completed = await agent_service.complete_text(content)
