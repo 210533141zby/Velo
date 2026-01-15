@@ -50,3 +50,86 @@ html, body, #app {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0,0,0,0.15);
 }
+
+/* --- Task List 终极修复 --- */
+ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start; /* 关键：顶部对齐，防止多行文本时框框跑偏 */
+  margin-bottom: 0.25rem;
+}
+
+/* 复选框容器 */
+ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.75rem;
+  user-select: none;
+  /* 视觉微调：根据字体大小(通常16px)和行高，往下挪一点点，实现视觉居中 */
+  margin-top: 0.3em;
+}
+
+/* 复选框本体 */
+ul[data-type="taskList"] li > label input[type="checkbox"] {
+  appearance: none;
+  background-color: #fff;
+  margin: 0;
+  cursor: pointer;
+  width: 1.1em;
+  height: 1.1em;
+  border: 2px solid #d1d5db; /* gray-300 */
+  border-radius: 0.25em;
+  display: grid;
+  place-content: center;
+  transition: all 0.2s ease-in-out;
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em white;
+  transform-origin: center;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+  background-color: #D06847; /* 陶土色 */
+  border-color: #D06847;
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+/* 文本内容区域 - 关键修复：必须占满剩余空间 */
+ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0; /* 防止溢出 */
+  margin: 0; /* 移除 p 标签默认 margin */
+}
+
+/* 针对 Tiptap 内部 p 标签的修正 */
+ul[data-type="taskList"] li > div > p {
+  margin: 0;
+  line-height: 1.6; /* 保持与其他文本一致 */
+}
+
+/* --- Blockquote Styling --- */
+.prose blockquote {
+  font-style: normal; /* 去掉默认斜体，显得更现代 */
+  font-weight: 400;
+  border-left-width: 4px;
+  border-left-color: #D06847; /* 陶土色 */
+  background-color: #fffbf7; /* 极淡的暖色背景 */
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  color: #4b5563;
+  quotes: none; /* 去掉默认的大引号 */
+}
