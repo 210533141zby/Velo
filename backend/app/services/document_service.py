@@ -1,3 +1,17 @@
+"""
+=============================================================================
+文件: document_service.py
+描述: 文档核心业务服务
+      本服务负责所有与文档生命周期相关的操作，包括 CRUD、缓存同步、
+      以及触发后台任务 (如 RAG 索引构建)。
+
+依赖关系:
+- agent_service: 用于创建文档后，异步触发向量索引构建。
+- redis_manager: 用于在读写操作时维护文档列表的缓存一致性。
+- models.Document: 数据库模型。
+=============================================================================
+"""
+
 from datetime import datetime
 import json
 from sqlalchemy import select, func
@@ -19,10 +33,19 @@ class DocumentService(BaseService):
         """
         创建新文档
         
-        流程:
-        1. 写入数据库 (Markdown 内容原样保存，不转义)
-        2. 清除列表缓存
-        3. 添加后台任务: 建立向量索引
+        Input:
+            doc_data (DocumentCreate): 包含 title, content, folder_id 等
+            background_tasks (BackgroundTasks): FastAPI 后台任务管理器
+        Output:
+            Document: 创建成功的数据库对象
+            
+        Logic Flow:
+            1. **DB Insert**: 将 Markdown 内容原样写入数据库。
+            2. **Commit & Refresh**: 提交事务并刷新对象以获取生成的 ID。
+            3. **Cache Invalidation**: 调用 `_invalidate_cache` 清除文档列表缓存，确保前端拉取到最新列表。
+            4. **Async Indexing**: 实例化 `AgentService` 并添加后台任务 `index_document`。
+               - Why Background? 索引过程涉及 OpenAI API 调用和向量库写入，耗时较长 (1-3s)，
+                 不应阻塞创建接口的响应。
         """
         # Markdown 内容原样保存
         new_doc = Document(
@@ -54,7 +77,18 @@ class DocumentService(BaseService):
         return new_doc
 
     async def get_document(self, doc_id: int) -> Document:
-        """获取单个文档详情"""
+        """
+        获取单个文档详情
+        
+        Input: doc_id
+        Output: Document or None
+        
+        Logic Flow:
+            1. **Direct DB Query**: 直接查询数据库，并过滤 `is_active=True` (软删除检查)。
+            2. **Why No Cache?**: 单个文档详情通常用于编辑场景，需要极高的实时性。
+               如果使用缓存，可能会导致用户在多端编辑时看到旧数据。
+               且文档内容可能较大，缓存单个大文档对 Redis 内存压力较大。
+        """
         query = select(Document).where(Document.id == doc_id, Document.is_active == True)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -63,12 +97,13 @@ class DocumentService(BaseService):
         """
         更新文档
         
-        流程:
-        1. 检查文档是否存在
-        2. 更新字段
-        3. 提交事务
-        4. 清除缓存
-        5. 触发后台任务: 更新向量索引
+        Logic Flow:
+            1. **Check Existence**: 检查文档是否存在且未被删除。
+            2. **Update Fields**: 更新标题、内容、文件夹等字段。
+            3. **Update Timestamp**: 手动更新 `updated_at`。
+            4. **Cache Invalidation**: 清除文档列表缓存 (因为标题或摘要可能变了)。
+            5. **Re-Indexing**: 触发后台任务重新生成向量索引。
+               - 注意: 这是一个全量更新索引的操作 (AgentService 侧通常会先覆盖或重新添加)。
         """
         doc = await self.get_document(doc_id)
         if not doc:
@@ -104,7 +139,16 @@ class DocumentService(BaseService):
     async def list_documents(self) -> list[dict]:
         """
         获取文档列表
-        优先读取 Redis 缓存
+        
+        Logic Flow (Read-Through Pattern):
+            1. **Cache Get**: 尝试从 Redis 读取 `documents_list`。
+               - 如果命中，直接返回 (极速响应)。
+            2. **DB Query**: 如果缓存未命中，从数据库查询。
+               - 只查询必要字段 (ID, Title, Substr(Content)作为摘要)。
+               - 按 `updated_at` 倒序排列。
+            3. **Cache Set**: 将查询结果序列化后存入 Redis，设置 5 分钟过期 (TTL=300)。
+               - 为什么是 5 分钟? 文档列表不需要毫秒级实时，5分钟的延迟在大多数 Wiki 场景可接受。
+               - 且 create/update/delete 操作会主动失效缓存，保证了即时一致性。
         """
         # 1. 尝试缓存
         try:
@@ -150,6 +194,12 @@ class DocumentService(BaseService):
     async def delete_document(self, doc_id: int, background_tasks: BackgroundTasks) -> bool:
         """
         删除文档 (软删除)
+        
+        Logic Flow:
+            1. **Soft Delete**: 将 `is_active` 置为 False，保留数据以便恢复。
+            2. **Cache Invalidation**: 清除列表缓存。
+            3. **Index Deletion**: 触发后台任务，从向量库中物理删除该文档的索引。
+               - 必须删除索引，否则 RAG 仍会检索到已删除的文档内容。
         """
         doc = await self.get_document(doc_id)
         if not doc:
@@ -175,7 +225,10 @@ class DocumentService(BaseService):
         return True
 
     async def _invalidate_cache(self):
-        """清除文档列表缓存"""
+        """
+        Helper: 清除文档列表缓存
+        通常在写操作 (C/U/D) 后调用
+        """
         try:
             await redis_manager.delete("documents_list")
         except Exception as e:

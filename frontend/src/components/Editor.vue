@@ -173,7 +173,7 @@ const registerCopilotProvider = () => {
         return { items: [] };
       }
     },
-    freeInlineCompletions() {
+    freeInlineCompletions(_items) {
       // 释放资源
     }
   });

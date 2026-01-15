@@ -1,5 +1,21 @@
+"""
+=============================================================================
+文件: agent_service.py
+描述: AI 智能体核心服务
+      本服务主要负责与 LLM (大语言模型) 和向量数据库 (Vector Store) 进行交互，
+      实现 RAG (检索增强生成)、文本润色、内容续写等核心 AI 功能。
+
+依赖关系:
+- langchain: 用于构建 LLM 调用链和 RAG 流程。
+- chroma_db: 用于存储和检索文档向量。
+- redis: 用于缓存 RAG 问答结果，提升响应速度 (Cache-Aside 模式)。
+=============================================================================
+"""
+
 import os
 import asyncio
+import json
+import hashlib
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -11,6 +27,7 @@ from openai import APITimeoutError
 from app.core.config import settings
 from app.logger import logger
 from app.services.base import BaseService
+from app.cache import redis_manager
 
 # =============================================================================
 # 全局常量与配置
@@ -50,10 +67,6 @@ def get_vector_store():
         )
     return _vector_store_instance
 
-import hashlib
-import json
-from app.cache import redis_manager
-
 class AgentService(BaseService):
     """
     AI 代理服务类
@@ -63,26 +76,28 @@ class AgentService(BaseService):
         super().__init__(db)
         self.vector_store = get_vector_store()
 
-    async def ask_ai(self, query: str) -> str:
-        """
-        纯 AI 问答 (不使用 RAG)
-        """
-        prompt = f"""
-        You are a helpful assistant. Answer the following question.
-        
-        Question: 
-        {query}
-        
-        Answer:
-        """
-        response = await llm.ainvoke(prompt)
-        return response.content
-
     async def index_document(self, doc_id: int, title: str, content: str):
         """
         索引文档 (通常作为后台任务运行)
-        将文档拆分为片段并存入向量库
-        使用 Markdown 专用切分器以优化结构化信息的保留
+        
+        Input: 
+            doc_id (int): 文档 ID
+            title (str): 文档标题
+            content (str): 文档内容 (Markdown 格式)
+            
+        Logic Flow:
+            1. 检查 API Key 是否有效，无效则跳过。
+            2. 使用 MarkdownHeaderTextSplitter 按标题层级 (#, ##, ###) 初步切分文档。
+            3. 使用 RecursiveCharacterTextSplitter 对切分后的片段进行二次切分，确保片段长度适中 (1000 chars)。
+            4. 构造 LangChain Document 对象，注入 metadata (doc_id, source)。
+            5. 调用向量库 (Chroma) 的 add_documents 方法写入向量。
+            6. 包含指数退避重试机制，处理可能的 API 超时或网络波动。
+            
+        Why:
+            - 为什么要用 MarkdownHeaderTextSplitter? 
+              为了保留文档的语义结构，避免将一个完整的章节强行切断。
+            - 为什么要用 run_in_threadpool? 
+              Chroma 的某些操作可能是同步阻塞的，为了不阻塞 FastAPI 的主事件循环，将其放入线程池执行。
         """
         # 检查是否配置了有效的 API Key
         if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("sk-placeholder"):
@@ -170,6 +185,10 @@ class AgentService(BaseService):
     async def delete_document_index(self, doc_id: int):
         """
         从向量库中删除文档索引
+        
+        Logic Flow:
+            1. 调用 Chroma 的 delete 方法，传入 where={"doc_id": doc_id} 过滤条件。
+            2. 使用 run_in_threadpool 确保不阻塞主线程。
         """
         try:
             # Chroma delete supports where filter
@@ -192,7 +211,14 @@ class AgentService(BaseService):
             })
 
     async def polish_text(self, text: str) -> str:
-        """Agent 动作: 润色/优化文本"""
+        """
+        Agent 动作: 润色/优化文本
+        
+        Input: 
+            text (str): 原始文本
+        Output: 
+            str: 润色后的文本
+        """
         prompt = f"""
         You are a professional editor. Please polish the following text to make it more concise, clear, and professional, while maintaining the original meaning.
         
@@ -212,7 +238,14 @@ class AgentService(BaseService):
         return response.content
 
     async def complete_text(self, text: str) -> str:
-        """Agent 动作: 自动补全文本"""
+        """
+        Agent 动作: 自动补全文本
+        
+        Input: 
+            text (str): 上下文文本
+        Output: 
+            str: 续写的内容
+        """
         prompt = f"""
         You are a helpful writing assistant. Please continue writing the following text naturally.
         
@@ -233,30 +266,43 @@ class AgentService(BaseService):
 
     async def rag_qa(self, query: str) -> dict:
         """
-        RAG 问答 (带 Redis 缓存)
+        RAG (Retrieval-Augmented Generation) 问答
         
-        流程:
-        1. 检查 Redis 缓存
-        2. 在向量数据库中检索相关文档
-        3. 构建包含上下文的 Prompt
-        4. 调用 LLM 生成回答
-        5. 写入 Redis 缓存
+        Input:
+            query (str): 用户问题
+        Output:
+            dict: { "response": str, "sources": List[dict] }
+            
+        Logic Flow (Cache-Aside Pattern):
+            1. **Key Generation**: 计算 query 的 MD5 哈希，生成 Redis Key `rag:response:{md5}`。
+            2. **Cache Hit**: 检查 Redis 是否有缓存。如果有，直接反序列化并返回，跳过后续昂贵操作。
+            3. **Vector Search (Cache Miss)**: 
+               - 调用向量库检索最相关的 Top-K (k=3) 文档片段。
+            4. **Context Construction**: 将检索到的片段拼接成上下文。
+            5. **LLM Generation**: 将 Context + Question 发送给 LLM 生成回答。
+            6. **Cache Set**: 将结果 (回答 + 来源) 存入 Redis，设置过期时间 (1小时)。
+            
+        Why:
+            - 为什么要用 Cache-Aside?
+              RAG 流程涉及 向量检索 + LLM 推理，耗时通常在 2-5秒。对于重复的高频问题，缓存可以实现毫秒级响应。
         """
-        # 1. 生成缓存 Key
-        query_hash = hashlib.md5(query.encode("utf-8")).hexdigest()
-        cache_key = f"rag:response:{query_hash}"
-        
-        # 2. 尝试读取缓存
-        cached_result = await redis_manager.get(cache_key)
-        if cached_result:
-            logger.info(f"[CACHE HIT] RAG 问答命中缓存: {query}")
-            try:
-                return json.loads(cached_result)
-            except json.JSONDecodeError:
-                pass # 缓存损坏，继续执行
-
         try:
-            # 3. 检索
+            # 1. 生成缓存 Key
+            query_hash = hashlib.md5(query.encode("utf-8")).hexdigest()
+            cache_key = f"rag:response:{query_hash}"
+            
+            # 2. 尝试读取缓存
+            cached_result = await redis_manager.get(cache_key)
+            if cached_result:
+                logger.info(f"[CACHE HIT] RAG 问答命中缓存: {query}", extra={
+                    "extra_data": {
+                        "event": "rag_cache_hit",
+                        "query": query
+                    }
+                })
+                return json.loads(cached_result)
+
+            # 3. 检索 (Cache Miss)
             docs = await run_in_threadpool(
                 self.vector_store.similarity_search, 
                 query, 
@@ -293,11 +339,14 @@ class AgentService(BaseService):
             """
             response = await llm.ainvoke(prompt)
             
-            result_data = {
+            result = {
                 "response": response.content,
                 "sources": sources
             }
-
+            
+            # 6. 写入缓存 (过期时间 1 小时)
+            await redis_manager.set(cache_key, json.dumps(result), ex=3600)
+            
             logger.info(f"RAG 问答完成: {query}", extra={
                 "extra_data": {
                     "event": "rag_qa_success",
@@ -306,10 +355,8 @@ class AgentService(BaseService):
                 }
             })
             
-            # 6. 写入缓存 (1小时过期)
-            await redis_manager.set(cache_key, json.dumps(result_data), ex=3600)
+            return result
             
-            return result_data
         except Exception as e:
             logger.error(f"RAG 问答失败: {e}", exc_info=True, extra={
                 "extra_data": {
@@ -322,17 +369,10 @@ class AgentService(BaseService):
                 "sources": []
             }
 
-    async def generate_knowledge_graph(self, doc_id: int, content: str):
+    async def ask_ai(self, query: str) -> str:
         """
-        生成知识图谱元数据
-        提取关键实体和摘要 (当前为简易版)
+        纯 AI 对话 (无 RAG)
         """
-        prompt = f"""
-        Analyze the following text and extract key concepts (entities) and a brief summary.
-        Return the result in JSON format with keys: "summary" (string) and "tags" (list of strings).
-        
-        Text:
-        {content[:2000]} # Limit context window
-        """
-        # 实际实现可能需要更复杂的解析，这里仅占位
-        pass
+        prompt = f"You are a helpful assistant. Please answer the following question:\n\n{query}"
+        response = await llm.ainvoke(prompt)
+        return response.content

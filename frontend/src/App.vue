@@ -4,18 +4,18 @@ import FileTree from './components/Sidebar/FileTree.vue';
 import TiptapEditor from './components/Editor/TiptapEditor.vue';
 import ChatPanel from './components/Copilot/ChatPanel.vue';
 import StatusBar from './components/Layout/StatusBar.vue';
-import { PanelLeft, Sparkles, Save, Share, Loader2, Check, Bot, File, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { PanelLeft, Sparkles, Save, Share, Loader2, Check, Bot, ChevronRight, ChevronLeft } from 'lucide-vue-next';
 import { onMounted, onUnmounted } from 'vue';
 
 const store = useEditorStore();
 
 const handleKeydown = (e: KeyboardEvent) => {
-  // Toggle AI Panel: Ctrl/Cmd + \
+  // Toggle Copilot with Ctrl + \
   if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
     e.preventDefault();
     store.toggleCopilot();
   }
-  // Close AI Panel: Esc (only if open)
+  // Close Copilot with Esc
   if (e.key === 'Escape' && store.isCopilotOpen) {
     store.toggleCopilot();
   }
@@ -114,36 +114,29 @@ onUnmounted(() => {
       <!-- Editor Area -->
       <div class="flex-1 relative overflow-hidden bg-white">
         <TiptapEditor 
-          v-if="store.currentDocument"
-          :modelValue="store.currentDocument.content"
-          @update:modelValue="(val) => store.updateContent(val)"
+          :model-value="store.currentDocument?.content || ''" 
+          @update:model-value="store.updateContent"
         />
-        <div v-else class="flex flex-col items-center justify-center h-full text-stone-400 bg-stone-50/50">
-          <File class="w-12 h-12 mb-4 opacity-20" />
-          <p class="text-lg font-medium opacity-60">No document selected</p>
-          <p class="text-sm opacity-40 mt-1">Select a file from the sidebar to start editing</p>
-        </div>
       </div>
 
       <!-- Status Bar -->
       <StatusBar />
-    </main>
 
-    <!-- Floating Toggle Handle -->
-    <button
-      @click="store.toggleCopilot"
-      class="absolute top-1/2 -translate-y-1/2 z-30 w-5 h-12 flex items-center justify-center bg-surface border border-border-line shadow-md cursor-pointer text-stone-400 hover:text-[#D06847] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] rounded-l-lg border-r-0"
-      :class="store.isCopilotOpen ? 'right-[350px]' : 'right-0'"
-      title="Toggle AI Assistant (Ctrl + \)"
-    >
-      <ChevronRight v-if="store.isCopilotOpen" class="w-3 h-3" />
-      <ChevronLeft v-else class="w-3 h-3" />
-    </button>
+      <!-- Floating AI Toggle Handle -->
+      <button 
+        @click="store.toggleCopilot"
+        class="absolute top-1/2 -translate-y-1/2 right-0 z-50 w-5 h-12 flex items-center justify-center bg-white border border-stone-200 shadow-md cursor-pointer text-stone-400 hover:text-[#D06847] transition-all duration-300 rounded-l-lg border-r-0"
+        title="Toggle AI Assistant (Ctrl + \)"
+      >
+        <ChevronRight v-if="store.isCopilotOpen" class="w-3 h-3" />
+        <ChevronLeft v-else class="w-3 h-3" />
+      </button>
+    </main>
 
     <!-- Copilot Panel -->
     <aside 
-      class="flex-shrink-0 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] border-l border-border-line bg-surface z-40"
-      :class="store.isCopilotOpen ? 'w-[350px] opacity-100' : 'w-0 border-none overflow-hidden opacity-0'"
+      class="flex-shrink-0 transition-all duration-300 ease-in-out border-l border-border-line bg-surface"
+      :class="store.isCopilotOpen ? 'w-[350px]' : 'w-0 border-none overflow-hidden opacity-0'"
     >
       <ChatPanel />
     </aside>

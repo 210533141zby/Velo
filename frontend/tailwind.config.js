@@ -56,55 +56,17 @@ export default {
             h1: {
               fontFamily: theme('fontFamily.serif'),
               fontWeight: '700',
-              color: '#171717',
+              color: theme('colors.stone.900'),
             },
             h2: {
               fontFamily: theme('fontFamily.serif'),
               fontWeight: '600',
-              color: '#171717',
+              color: theme('colors.stone.900'),
             },
-            h3: {
-              fontFamily: theme('fontFamily.serif'),
-              fontWeight: '600',
-              color: '#171717',
-            },
-            h4: {
-              fontFamily: theme('fontFamily.serif'),
-              fontWeight: '600',
-              color: '#171717',
-            },
-            // 1. 修复代码块 (Code Block) - 改为 Notion 风格的浅灰底
-            pre: {
-              backgroundColor: '#F3F4F6', // bg-gray-100
-              color: '#1F2937',           // text-gray-800
-              border: '1px solid #E5E7EB', // border-gray-200
-              borderRadius: '0.5rem',
-              padding: '1rem',
-            },
-            'pre code': {
-              backgroundColor: 'transparent',
-              color: 'inherit',
-              fontSize: '0.875rem',
-              fontFamily: theme('fontFamily.mono'),
-            },
-            // 2. 修复行内代码 (Inline Code)
-            'code::before': { content: '""' }, // 去掉丑陋的反引号
-            'code::after': { content: '""' },
             code: {
-              backgroundColor: '#F3F4F6',
-              color: '#D06847', // 使用陶土色高亮行内代码
-              padding: '0.2rem 0.4rem',
-              borderRadius: '0.25rem',
-              fontWeight: '500',
-            },
-            // 3. 修复引用 (Blockquote) - 陶土色竖线
-            blockquote: {
-              borderLeftColor: '#D06847', // 陶土色
-              borderLeftWidth: '4px',
-              backgroundColor: '#FFFBF5', // 极淡的暖色背景
-              fontStyle: 'normal',
-              padding: '0.5rem 1rem',
-              color: '#4B5563',
+              color: theme('colors.claude.600'),
+              backgroundColor: theme('colors.stone.100'),
+              borderRadius: '0.375rem',
             },
           },
         },

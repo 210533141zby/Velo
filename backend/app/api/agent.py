@@ -1,9 +1,17 @@
 """
 =============================================================================
 文件: agent.py
-描述: AI 智能体接口
-      提供与 AI 助手对话、文本润色、内容补全等功能的 RESTful API
-      核心逻辑封装在 AgentService 中
+描述: AI 智能体 API 接口层
+      本模块作为 AgentService 的 HTTP 访问入口，遵循 RESTful 规范。
+      
+架构准则 (API Layer Responsibilities):
+1. **Request Parsing**: 使用 Pydantic 模型 (ChatRequest) 解析和校验请求体。
+2. **Dependency Injection**: 通过 `Depends(get_agent_service)` 获取 Service 实例。
+3. **Delegation**: 将业务逻辑完全委托给 `AgentService`，API 层不包含复杂的 if/else 业务判断。
+4. **Response Formatting**: 将 Service 返回的结果封装为标准 JSON 响应。
+
+依赖关系:
+- AgentService: 核心业务逻辑提供者。
 =============================================================================
 """
 
@@ -21,7 +29,13 @@ router = APIRouter()
 # -----------------------------------------------------------------------------
 
 def get_agent_service(db: AsyncSession = Depends(get_db)) -> AgentService:
-    """依赖注入: 获取 Agent 服务实例"""
+    """
+    依赖注入: 获取 Agent 服务实例
+    
+    Why:
+    - 确保每个请求都有独立的 DB Session。
+    - 方便单元测试时 Mock Service。
+    """
     return AgentService(db)
 
 # -----------------------------------------------------------------------------
@@ -34,10 +48,14 @@ async def chat_with_agent(
     agent_service: AgentService = Depends(get_agent_service)
 ):
     """
-    与 AI 助手聊天
+    与 AI 助手聊天接口
     
-    - 支持普通对话模式
-    - 支持 RAG (检索增强生成) 模式，基于本地知识库回答
+    Logic Flow:
+    1. **Extract Query**: 从请求体中提取用户最新的消息内容。
+    2. **Dispatch**: 根据 `request.use_rag` 标志位，决定调用 RAG 模式还是纯聊天模式。
+       - True -> `agent_service.rag_qa()`: 检索 + 生成。
+       - False -> `agent_service.ask_ai()`: 直接生成。
+    3. **Response**: 构造 `ChatResponse` 对象返回。
     """
     user_query = request.messages[-1].content
     
@@ -62,9 +80,10 @@ async def polish_content(
     agent_service: AgentService = Depends(get_agent_service)
 ):
     """
-    内容润色
+    内容润色接口
     
-    - 调用 LLM 对文本进行润色，提升专业度
+    Input: {"content": "原始文本"}
+    Output: {"result": "润色后的文本"}
     """
     content = text.get("content", "")
     polished = await agent_service.polish_text(content)
@@ -76,9 +95,10 @@ async def complete_content(
     agent_service: AgentService = Depends(get_agent_service)
 ):
     """
-    内容续写
+    内容续写接口
     
-    - 调用 LLM 根据上下文自动补全内容
+    Input: {"content": "上下文文本"}
+    Output: {"result": "续写的文本"}
     """
     content = text.get("content", "")
     completed = await agent_service.complete_text(content)
