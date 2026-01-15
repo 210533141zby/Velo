@@ -8,7 +8,7 @@ const inputValue = ref('');
 const isRAGMode = ref(false); // Default to AI Chat, toggle to RAG (Database)
 
 const messages = ref([
-  { id: 1, role: 'ai', content: 'Hello! I am Velo AI. How can I help you edit this document today?' }
+  { id: 1, role: 'ai', content: '你好！我是 Velo 助手。今天有什么我可以帮你的吗？' }
 ]);
 
 const sendMessage = () => {
@@ -30,7 +30,7 @@ const sendMessage = () => {
     messages.value.push({
       id: Date.now() + 1,
       role: 'ai',
-      content: `[${currentMode} Mode] I received your message: "${userText}". This is a mock response.`
+      content: `[${currentMode} 模式] 我收到了你的消息: "${userText}". 这是一个模拟回复。`
     });
   }, 1000);
 };
@@ -41,7 +41,7 @@ const sendMessage = () => {
     <!-- Header -->
     <div class="h-14 flex items-center justify-between px-4 border-b border-stone-200 bg-white z-10">
       <div class="flex items-center space-x-2">
-        <span class="font-bold text-stone-700">Velo Assistant</span>
+        <span class="font-bold text-stone-700">Velo 助手</span>
       </div>
       
       <button 
@@ -98,21 +98,33 @@ const sendMessage = () => {
           <Send class="w-3 h-3" />
         </button>
       </div>
-      <div class="mt-2 flex justify-between items-center px-1">
-        <!-- 知识库 Toggle -->
-        <button 
-          @click="isRAGMode = !isRAGMode"
-          class="flex items-center space-x-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors border"
-          :class="isRAGMode 
-            ? 'bg-[#D06847] text-white border-[#D06847]' 
-            : 'bg-white text-stone-500 border-stone-200 hover:border-[#D06847] hover:text-[#D06847]'"
-        >
-          <Database class="w-3.5 h-3.5" />
-          <span>知识库</span>
-        </button>
+      <div class="mt-3 flex justify-between items-center px-1">
+        <!-- 知识库 Toggle Switch -->
+        <div class="flex items-center space-x-2">
+          <button 
+            @click="isRAGMode = !isRAGMode"
+            class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+            :class="isRAGMode ? 'bg-[#D06847]' : 'bg-stone-300'"
+            title="点击切换知识库模式"
+          >
+            <span class="sr-only">使用知识库</span>
+            <span
+              aria-hidden="true"
+              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+              :class="isRAGMode ? 'translate-x-4' : 'translate-x-0'"
+            ></span>
+          </button>
+          <span 
+            class="text-xs font-medium cursor-pointer select-none"
+            :class="isRAGMode ? 'text-[#D06847]' : 'text-stone-500'"
+            @click="isRAGMode = !isRAGMode"
+          >
+            知识库
+          </span>
+        </div>
         
         <span class="text-xs text-stone-400">
-          {{ isRAGMode ? '已启用知识库' : 'Powered by LLM' }}
+          {{ isRAGMode ? '已启用本地检索' : '通用模型' }}
         </span>
       </div>
     </div>
