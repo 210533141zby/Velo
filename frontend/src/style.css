@@ -121,15 +121,48 @@ ul[data-type="taskList"] li > div > p {
   line-height: 1.6; /* 保持与其他文本一致 */
 }
 
-/* --- Blockquote Styling --- */
+/* --- 核心样式精修 --- */
+
+/* 1. 精修引用 (Blockquote) - 极致压缩版 */
 .prose blockquote {
-  font-style: normal; /* 去掉默认斜体，显得更现代 */
+  font-style: normal;
   font-weight: 400;
-  border-left-width: 4px;
+  border-left-width: 3px;
   border-left-color: #D06847; /* 陶土色 */
   background-color: #fffbf7; /* 极淡的暖色背景 */
-  padding: 0.75rem 1rem;
+  /* 极致压缩 padding，靠 line-height 撑开即可 */
+  padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
-  color: #4b5563;
-  quotes: none; /* 去掉默认的大引号 */
+  color: #57534e; /* stone-600 */
+  quotes: none;
+  margin: 0.75rem 0; /* 减小外部间距 */
+  line-height: 1.6; /* 保持可读性 */
+}
+
+/* 关键：强制去除引用内部 p 标签的所有垂直 margin */
+.prose blockquote p {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* 2. 精修代码块 (Code Block) - Typora 风格 (GitHub Light Theme) */
+.prose pre {
+  background-color: #f6f8fa; /* GitHub 浅灰背景 */
+  border-radius: 6px; /* 更圆润一点 */
+  padding: 1rem; /* 舒适的内边距 */
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid #d0d7de; /* 极淡的边框 */
+  box-shadow: none; /* 去除阴影 */
+}
+
+.prose pre code {
+  background-color: transparent;
+  color: #24292f; /* GitHub 深色文字 */
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.875rem; /* 14px */
+  padding: 0;
+  border: none;
+  font-weight: 500; /* 稍微加粗一点点，更清晰 */
+  line-height: 1.5;
 }

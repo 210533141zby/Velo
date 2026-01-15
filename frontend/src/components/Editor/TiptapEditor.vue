@@ -407,32 +407,4 @@ onBeforeUnmount(() => editor.value?.destroy())
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e5e5; border-radius: 3px; }
 .rotate-90 { transform: rotate(90deg); }
-
-/* 
-  Task List 样式修复 
-  Tiptap TaskList 渲染为 ul[data-type="taskList"]，
-  需要移除 Tailwind Prose 默认的 list-style，并调整布局
-*/
-ul[data-type="taskList"] {
-  list-style: none;
-  padding: 0;
-}
-
-ul[data-type="taskList"] li {
-  display: flex;
-  align-items: flex-start; /* 顶部对齐 */
-  margin-bottom: 0.5rem;
-}
-
-ul[data-type="taskList"] li > label {
-  flex: 0 0 auto;
-  margin-right: 0.5rem;
-  user-select: none;
-  margin-top: 0.2rem; /* 微调 checkbox 位置 */
-}
-
-ul[data-type="taskList"] li > div {
-  flex: 1 1 auto;
-  margin: 0; /* 移除 prose 可能添加的 margin */
-}
 </style>
