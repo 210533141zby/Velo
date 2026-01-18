@@ -355,34 +355,46 @@ onBeforeUnmount(() => editor.value?.destroy())
         </button>
 
         <!-- Dynamic Table Toolbar -->
-        <div v-if="editor.isActive('table')" class="flex items-center gap-1 ml-2 pl-2 border-l border-stone-200 animate-in fade-in slide-in-from-left-2 duration-200">
-          <div class="flex items-center gap-0.5">
-            <button @click="addRowAfter" class="p-1.5 rounded hover:bg-stone-100 text-primary" title="下方插入行">
-              <ArrowDown class="w-4 h-4" />
+        <div v-if="editor.isActive('table')" class="flex items-center gap-2 ml-2 pl-2 border-l border-stone-200 animate-in fade-in slide-in-from-left-2 duration-200">
+          <!-- Row Operations -->
+          <div class="flex items-center gap-1 bg-stone-50 rounded p-1 border border-stone-100">
+            <span class="text-[10px] text-stone-500 font-medium px-1 select-none">行</span>
+            <button @click="addRowAfter" class="flex items-center justify-center p-1 rounded hover:bg-white hover:shadow-sm text-stone-600 transition-all" title="在下方插入行">
+              <ArrowDown class="w-3.5 h-3.5" />
             </button>
-            <button @click="deleteRow" class="p-1.5 rounded hover:bg-red-50 text-red-500" title="删除当前行">
-              <X class="w-4 h-4" />
-            </button>
-          </div>
-          <div class="w-px h-3 bg-stone-200 mx-0.5"></div>
-          <div class="flex items-center gap-0.5">
-            <button @click="addColumnAfter" class="p-1.5 rounded hover:bg-stone-100 text-primary" title="右侧插入列">
-              <ArrowRight class="w-4 h-4" />
-            </button>
-            <button @click="deleteColumn" class="p-1.5 rounded hover:bg-red-50 text-red-500" title="删除当前列">
-              <X class="w-4 h-4" />
+            <button @click="deleteRow" class="flex items-center justify-center p-1 rounded hover:bg-red-50 hover:text-red-500 text-stone-400 hover:shadow-sm transition-all" title="删除当前行">
+              <Trash2 class="w-3.5 h-3.5" />
             </button>
           </div>
-          <div class="w-px h-3 bg-stone-200 mx-0.5"></div>
-          <button @click="mergeCells" class="p-1.5 rounded hover:bg-stone-100 text-stone-600" title="合并单元格">
-            <Merge class="w-4 h-4" />
-          </button>
-           <button @click="splitCell" class="p-1.5 rounded hover:bg-stone-100 text-stone-600" title="拆分单元格">
-            <Split class="w-4 h-4" />
-          </button>
-          <div class="w-px h-3 bg-stone-200 mx-0.5"></div>
-          <button @click="deleteTable" class="p-1.5 rounded hover:bg-red-50 text-red-500" title="删除整个表格">
-            <Trash2 class="w-4 h-4" />
+          
+          <!-- Column Operations -->
+          <div class="flex items-center gap-1 bg-stone-50 rounded p-1 border border-stone-100">
+             <span class="text-[10px] text-stone-500 font-medium px-1 select-none">列</span>
+            <button @click="addColumnAfter" class="flex items-center justify-center p-1 rounded hover:bg-white hover:shadow-sm text-stone-600 transition-all" title="在右侧插入列">
+              <ArrowRight class="w-3.5 h-3.5" />
+            </button>
+            <button @click="deleteColumn" class="flex items-center justify-center p-1 rounded hover:bg-red-50 hover:text-red-500 text-stone-400 hover:shadow-sm transition-all" title="删除当前列">
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <!-- Cell Operations -->
+           <div class="flex items-center gap-1">
+            <button @click="mergeCells" class="flex items-center gap-1 px-2 py-1 rounded hover:bg-stone-100 text-stone-600 text-xs font-medium border border-transparent hover:border-stone-200 transition-all" title="合并选中的单元格">
+               <Merge class="w-3.5 h-3.5" />
+               <span>合并</span>
+            </button>
+             <button @click="splitCell" class="flex items-center gap-1 px-2 py-1 rounded hover:bg-stone-100 text-stone-600 text-xs font-medium border border-transparent hover:border-stone-200 transition-all" title="拆分单元格">
+              <Split class="w-3.5 h-3.5" />
+              <span>拆分</span>
+            </button>
+          </div>
+          
+          <div class="w-px h-4 bg-stone-200 mx-1"></div>
+          
+          <button @click="deleteTable" class="flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 text-red-500 text-xs font-medium transition-colors border border-transparent hover:border-red-100" title="删除整个表格">
+            <Trash2 class="w-3.5 h-3.5" />
+            <span>删除表格</span>
           </button>
         </div>
       </div>
@@ -407,4 +419,52 @@ onBeforeUnmount(() => editor.value?.destroy())
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e5e5; border-radius: 3px; }
 .rotate-90 { transform: rotate(90deg); }
+
+/* Tiptap Table Styles - 修复表格显示为三条线的问题 */
+.prose table {
+  border-collapse: collapse;
+  margin: 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.prose table td,
+.prose table th {
+  border: 1px solid #d6d3d1; /* stone-300 */
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 3px 6px; /* 紧凑模式 */
+  position: relative;
+  vertical-align: top;
+  font-size: 0.9em; /* 字体稍小 */
+}
+
+.prose table th {
+  background-color: #f5f5f4; /* stone-100 */
+  font-weight: 600;
+  text-align: left;
+}
+
+.prose table .selectedCell:after {
+  background: rgba(200, 200, 255, 0.4);
+  content: "";
+  left: 0;
+  bottom: 0;
+  right: 0;
+  top: 0;
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.prose table .column-resize-handle {
+  background-color: #a8a29e; /* stone-400 */
+  bottom: -2px;
+  position: absolute;
+  right: -2px;
+  pointer-events: none;
+  top: 0;
+  width: 4px;
+}
 </style>
