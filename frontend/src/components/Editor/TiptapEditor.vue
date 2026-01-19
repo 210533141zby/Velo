@@ -6,8 +6,8 @@
  * 本文件是前端编辑器的核心，集成了 Tiptap (一个基于 ProseMirror 的 Headless 编辑器框架)。
  * 它负责：
  * 1. 渲染编辑器 UI (工具栏 + 编辑区域)。
- * 2. 管理编辑器的扩展 (Markdown 支持, 表格, 任务列表等)。
- * 3. 处理复杂的交互逻辑 (如 Backspace 删除表格, 粘贴 Markdown 源码自动解析)。
+ * 2. 管理编辑器的扩展 (Markdown 支持, 任务列表等)。
+ * 3. 处理复杂的交互逻辑 (如 粘贴 Markdown 源码自动解析)。
  * 4. 与 Pinia Store 同步文档内容 (双向绑定)。
  * 
  * 依赖关系:
@@ -21,10 +21,6 @@ import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import Typography from '@tiptap/extension-typography'
 import Image from '@tiptap/extension-image'
-import { Table } from '@tiptap/extension-table'
-import { TableRow } from '@tiptap/extension-table-row'
-import { TableCell } from '@tiptap/extension-table-cell'
-import { TableHeader } from '@tiptap/extension-table-header'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { watch, onBeforeUnmount, ref } from 'vue'
@@ -35,8 +31,7 @@ import MarkdownIt from 'markdown-it'
 import taskLists from 'markdown-it-task-lists'
 import { 
   Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, 
-  List, ListOrdered, Quote, Minus, Table as TableIcon, CheckSquare, 
-  Trash2, Merge, Split, ArrowDown, ArrowRight, X
+  List, ListOrdered, Quote, Minus, CheckSquare, X
 } from 'lucide-vue-next'
 
 const props = defineProps<{ modelValue: string }>()
@@ -73,73 +68,6 @@ const updateStats = (editor: any) => {
   store.updateStats(wordCount, line, col)
 }
 
-
-/**
- * TableBackspaceFix Extension
- * 
- * Why:
- * Tiptap 原生表格在某些情况下 (特别是表格后紧跟光标时) 按 Backspace 无法删除表格，
- * 或者需要先选中表格才能删除，体验不佳。
- * 
- * Logic Flow:
- * 1. 监听 Backspace 键。
- * 2. 检查光标是否在 Block 的开头。
- * 3. 检查光标前一个节点是否是表格。
- * 4. 如果是，则手动选中该表格 (setNodeSelection)，这样下一次按 Backspace 就会删除它。
- */
-const TableBackspaceFix = Extension.create({
-  name: 'tableBackspaceFix',
-  addKeyboardShortcuts() {
-    return {
-      Backspace: () => {
-        const { selection } = this.editor.state
-        // 1. 如果已经选中了表格，交给默认逻辑处理 (通常会删除)
-        if ((selection as any).node?.type.name === 'table') {
-          this.editor.commands.deleteSelection()
-          return true
-        }
-        
-        const { $from, empty } = selection
-        
-        // 2. 如果光标在 Block (如段落) 的开头
-        if (empty && $from.parentOffset === 0) {
-           // 获取当前 Block 之前的那个节点位置
-           const prevNodePos = $from.before() - 1
-           if (prevNodePos >= 0) {
-              // 检查前一个节点是否是表格
-              const index = $from.index($from.depth - 1)
-              if (index > 0) {
-                const prevNode = $from.node($from.depth - 1).child(index - 1)
-                if (prevNode.type.name === 'table') {
-                  // 选中表格
-                  const tablePos = $from.before() - prevNode.nodeSize
-                  this.editor.commands.setNodeSelection(tablePos)
-                  return true
-                }
-             }
-           }
-        }
-        
-        return false
-      },
-      Delete: () => {
-        const { selection } = this.editor.state
-        if ((selection as any).node?.type.name === 'table') {
-          this.editor.commands.deleteSelection()
-          return true
-        }
-        // 如果光标在表格紧前方，Delete 应该选中表格
-        const { $from, empty } = selection
-        if (empty && $from.nodeAfter?.type.name === 'table') {
-          this.editor.commands.setNodeSelection($from.pos)
-          return true
-        }
-        return false
-      }
-    }
-  }
-})
-
 const editor = useEditor({
   content: props.modelValue, // 初始化内容
   extensions: [
@@ -154,13 +82,8 @@ const editor = useEditor({
     }), 
     Typography, 
     Image, 
-    Table.configure({ resizable: true, allowTableNodeSelection: true }), 
-    TableRow, 
-    TableHeader, 
-    TableCell, 
     TaskList, 
     TaskItem.configure({ nested: true }),
-    TableBackspaceFix, 
   ],  
   editorProps: { 
     attributes: { 
@@ -292,16 +215,6 @@ const toggleBlockquote = () => {
 }
 
 const setHorizontalRule = () => editor.value?.chain().focus().setHorizontalRule().run() 
-const insertTable = () => editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() 
-
-// Table Operations 
-const addColumnAfter = () => editor.value?.chain().focus().addColumnAfter().run() 
-const deleteColumn = () => editor.value?.chain().focus().deleteColumn().run() 
-const addRowAfter = () => editor.value?.chain().focus().addRowAfter().run() 
-const deleteRow = () => editor.value?.chain().focus().deleteRow().run()
-const deleteTable = () => editor.value?.chain().focus().deleteTable().run()
-const mergeCells = () => editor.value?.chain().focus().mergeCells().run()
-const splitCell = () => editor.value?.chain().focus().splitCell().run()
 
 onBeforeUnmount(() => editor.value?.destroy())
 </script>
@@ -347,56 +260,9 @@ onBeforeUnmount(() => editor.value?.destroy())
           <Quote class="w-4 h-4" />
         </button>
         <div class="w-px h-4 bg-stone-200 mx-1"></div>
-        <button @click="insertTable" class="p-1.5 rounded hover:bg-stone-100 text-stone-500" title="插入表格 (3x3)">
-          <TableIcon class="w-4 h-4" />
-        </button>
         <button @click="setHorizontalRule" class="p-1.5 rounded hover:bg-stone-100 text-stone-500" title="水平分割线">
           <Minus class="w-4 h-4" />
         </button>
-
-        <!-- Dynamic Table Toolbar -->
-        <div v-if="editor.isActive('table')" class="flex items-center gap-2 ml-2 pl-2 border-l border-stone-200 animate-in fade-in slide-in-from-left-2 duration-200">
-          <!-- Row Operations -->
-          <div class="flex items-center gap-1 bg-stone-50 rounded p-1 border border-stone-100">
-            <span class="text-[10px] text-stone-500 font-medium px-1 select-none">行</span>
-            <button @click="addRowAfter" class="flex items-center justify-center p-1 rounded hover:bg-white hover:shadow-sm text-stone-600 transition-all" title="在下方插入行">
-              <ArrowDown class="w-3.5 h-3.5" />
-            </button>
-            <button @click="deleteRow" class="flex items-center justify-center p-1 rounded hover:bg-red-50 hover:text-red-500 text-stone-400 hover:shadow-sm transition-all" title="删除当前行">
-              <Trash2 class="w-3.5 h-3.5" />
-            </button>
-          </div>
-          
-          <!-- Column Operations -->
-          <div class="flex items-center gap-1 bg-stone-50 rounded p-1 border border-stone-100">
-             <span class="text-[10px] text-stone-500 font-medium px-1 select-none">列</span>
-            <button @click="addColumnAfter" class="flex items-center justify-center p-1 rounded hover:bg-white hover:shadow-sm text-stone-600 transition-all" title="在右侧插入列">
-              <ArrowRight class="w-3.5 h-3.5" />
-            </button>
-            <button @click="deleteColumn" class="flex items-center justify-center p-1 rounded hover:bg-red-50 hover:text-red-500 text-stone-400 hover:shadow-sm transition-all" title="删除当前列">
-              <Trash2 class="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <!-- Cell Operations -->
-           <div class="flex items-center gap-1">
-            <button @click="mergeCells" class="flex items-center gap-1 px-2 py-1 rounded hover:bg-stone-100 text-stone-600 text-xs font-medium border border-transparent hover:border-stone-200 transition-all" title="合并选中的单元格">
-               <Merge class="w-3.5 h-3.5" />
-               <span>合并</span>
-            </button>
-             <button @click="splitCell" class="flex items-center gap-1 px-2 py-1 rounded hover:bg-stone-100 text-stone-600 text-xs font-medium border border-transparent hover:border-stone-200 transition-all" title="拆分单元格">
-              <Split class="w-3.5 h-3.5" />
-              <span>拆分</span>
-            </button>
-          </div>
-          
-          <div class="w-px h-4 bg-stone-200 mx-1"></div>
-          
-          <button @click="deleteTable" class="flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 text-red-500 text-xs font-medium transition-colors border border-transparent hover:border-red-100" title="删除整个表格">
-            <Trash2 class="w-3.5 h-3.5" />
-            <span>删除表格</span>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -419,52 +285,4 @@ onBeforeUnmount(() => editor.value?.destroy())
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e5e5; border-radius: 3px; }
 .rotate-90 { transform: rotate(90deg); }
-
-/* Tiptap Table Styles - 修复表格显示为三条线的问题 */
-.prose table {
-  border-collapse: collapse;
-  margin: 0;
-  overflow: hidden;
-  table-layout: fixed;
-  width: 100%;
-}
-
-.prose table td,
-.prose table th {
-  border: 1px solid #d6d3d1; /* stone-300 */
-  box-sizing: border-box;
-  min-width: 1em;
-  padding: 3px 6px; /* 紧凑模式 */
-  position: relative;
-  vertical-align: top;
-  font-size: 0.9em; /* 字体稍小 */
-}
-
-.prose table th {
-  background-color: #f5f5f4; /* stone-100 */
-  font-weight: 600;
-  text-align: left;
-}
-
-.prose table .selectedCell:after {
-  background: rgba(200, 200, 255, 0.4);
-  content: "";
-  left: 0;
-  bottom: 0;
-  right: 0;
-  top: 0;
-  position: absolute;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.prose table .column-resize-handle {
-  background-color: #a8a29e; /* stone-400 */
-  bottom: -2px;
-  position: absolute;
-  right: -2px;
-  pointer-events: none;
-  top: 0;
-  width: 4px;
-}
 </style>

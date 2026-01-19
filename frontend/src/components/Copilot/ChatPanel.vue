@@ -8,7 +8,7 @@ const inputValue = ref('');
 const isRAGMode = ref(false); // Default to AI Chat, toggle to RAG (Database)
 
 const messages = ref([
-  { id: 1, role: 'ai', content: '你好！我是 Velo 助手。今天有什么我可以帮你的吗？' }
+  { id: 1, role: 'ai', content: '你好！我是 AI 助手。今天有什么我可以帮你的吗？' }
 ]);
 
 const sendMessage = () => {
@@ -41,7 +41,7 @@ const sendMessage = () => {
     <!-- Header -->
     <div class="h-14 flex items-center justify-between px-4 border-b border-stone-200 bg-white z-10">
       <div class="flex items-center space-x-2">
-        <span class="font-bold text-stone-700">Velo 助手</span>
+        <span class="font-bold text-stone-700">AI 助手</span>
       </div>
       
       <button 
