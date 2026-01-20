@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  backend:
+    image: swze/metis-backend:latest
+    container_name: metis_backend
+    volumes:
+      # 挂载整个后端目录，代码和 wiki.db 都在里面
+      - ./backend:/app
+      # 即使 chroma_db 在 backend 内部，也建议显式挂载一下，确保向量数据安全
+      - ./backend/chroma_db:/app/chroma_db
+    environment:
+      # 核心：将服务器的 host 指向宿主机，方便访问 vLLM
+      - VLLM_API_URL=http://127.0.0.1:8000/v1
+      # 确保不传 POSTGRES_SERVER，触发你代码里的 sqlite 逻辑
+      - POSTGRES_SERVER=sqlite
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    network_mode: "host"
+
+  # === Frontend Service ===
+  frontend:
+    image: swze/metis-frontend:latest
+    container_name: metis_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  # === Redis Service ===
+  redis:
+    image: redis:7-alpine
+    container_name: metis_redis
+    restart: always
+    volumes:
+      - redis_data:/data
+
+  # === vLLM Service (Large Language Model) ===
+  # 官方高性能推理引擎，不需要自己构建镜像
+  # === vLLM Service ===
+  # === vLLM Service ===
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: metis_vllm
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    # === 针对 3090 和方案优化后的启动参数 ===
+    command: >
+      --model Qwen/Qwen2.5-14B-Instruct-AWQ
+      --quantization awq
+      --host 0.0.0.0 
+      --port 8000 
+      --max-model-len 16384
+      --gpu-memory-utilization 0.9
+      --enable-prefix-caching
+      --trust-remote-code
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  redis_data:

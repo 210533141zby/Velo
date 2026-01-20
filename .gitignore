@@ -35,3 +35,4 @@ Thumbs.db
 .lingma/
 .lingma
 backend/chroma_db/
+backend/wiki.db
