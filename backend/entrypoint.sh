@@ -35,5 +35,8 @@ fi
 # 确保数据目录权限正确
 chmod -R 755 "$DATA_DIR"
 
+# 临时修复：安装缺失的依赖
+pip install loguru
+
 # 启动应用
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000

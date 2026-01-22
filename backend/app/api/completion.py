@@ -11,11 +11,14 @@
 =============================================================================
 """
 
+import logging
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.services.llm_service import complete_code
+from app.services.llm_service import complete_text
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 class CompletionRequest(BaseModel):
     """
@@ -25,30 +28,33 @@ class CompletionRequest(BaseModel):
         FIM (Fill-In-the-Middle) 模式的标准参数。
         - prefix: 光标前面的代码
         - suffix: 光标后面的代码
-        - language: 当前文件的语言 (python, markdown, js 等)
+        - language: 当前文件的语言 (python, markdown, js 等)，可选
     """
     prefix: str
     suffix: str
-    language: str = "markdown"
+    language: Optional[str] = None
 
 @router.post("/completion")
-async def get_completion(req: CompletionRequest):
+async def generate_completion(request: CompletionRequest):
     """
-    获取代码补全建议
-    
-    Logic Flow:
-        1. **参数校验**: 如果前文为空，没法补全，直接返回空串。
-        2. **参数调整**: 根据语言类型调整 max_tokens。
-           - Python 代码通常逻辑密度高，生成的行数少，给 64 tokens。
-           - Markdown 文本可能比较长，但为了响应速度，这里暂时给 32 tokens。
-        3. **模型调用**: 委托给 `llm_service.complete_code` 去调大模型。
+    接收前端的光标前缀(prefix)和后缀(suffix)，返回补全结果
     """
-    # 简单判断：如果前文是空的，就不补全
-    if not req.prefix:
-        return {"completion": ""}
-    
-    # 根据语言动态调整 Max Tokens (代码行短，文本长)
-    max_tokens = 64 if req.language == "python" else 32
+    try:
+        if not request.prefix:
+            return {"completion": ""}
 
-    content = await complete_code(req.prefix, req.suffix, max_tokens)
-    return {"completion": content}
+        # 2. 增加日志，确认请求到达
+        logger.info(f"收到补全请求: prefix_len={len(request.prefix)}, suffix_len={len(request.suffix)}")
+
+        result = await complete_text(request.prefix, request.suffix)
+        
+        if result is None:
+            logger.warning("LLM 服务返回 None")
+            raise HTTPException(status_code=503, detail="AI Service Unavailable")
+            
+        return {"completion": result}
+
+    except Exception as e:
+        # 3. 捕获所有未知错误并打印堆栈，防止前端只看到 500
+        logger.exception("补全接口发生未捕获异常")
+        raise HTTPException(status_code=500, detail=str(e))

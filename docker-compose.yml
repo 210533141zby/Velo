@@ -2,24 +2,29 @@ version: '3.8'
 
 services:
   backend:
-    image: swze/metis-backend:latest
+    build: ./backend
     container_name: metis_backend
-    volumes:
-      # 挂载整个后端目录，代码和 wiki.db 都在里面
-      - ./backend:/app
-      # 即使 chroma_db 在 backend 内部，也建议显式挂载一下，确保向量数据安全
-      - ./backend/chroma_db:/app/chroma_db
+    restart: always
+    ports:
+      - "8000:8000"
     environment:
-      # 核心：将服务器的 host 指向宿主机，方便访问 vLLM
-      - VLLM_API_URL=http://127.0.0.1:8000/v1
-      # 确保不传 POSTGRES_SERVER，触发你代码里的 sqlite 逻辑
       - POSTGRES_SERVER=sqlite
+      - VLLM_API_URL=http://vllm:8000/v1
+      - REDIS_HOST=redis
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data
+    depends_on:
+      - redis
+      - vllm
+    # 移除 host 模式，加入默认网络以便与 redis/frontend 通信
+    # network_mode: "host" 
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    network_mode: "host"
 
   # === Frontend Service ===
   frontend:
-    image: swze/metis-frontend:latest
+    # image: swze/metis-frontend:latest
+    build: ./frontend
     container_name: metis_frontend
     restart: always
     ports:
@@ -40,25 +45,17 @@ services:
   # === vLLM Service ===
   # === vLLM Service ===
   vllm:
-    image: vllm/vllm-openai:latest
+    image: vllm/vllm-openai:v0.6.2
     container_name: metis_vllm
     restart: always
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
-      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
     # === 针对 3090 和方案优化后的启动参数 ===
-    command: >
-      --model Qwen/Qwen2.5-14B-Instruct-AWQ
-      --quantization awq
-      --host 0.0.0.0 
-      --port 8000 
-      --max-model-len 16384
-      --gpu-memory-utilization 0.9
-      --enable-prefix-caching
-      --trust-remote-code
+    command: --model Qwen/Qwen2.5-Coder-14B-Instruct-AWQ --quantization awq --dtype half --gpu-memory-utilization 0.95 --max-model-len 32768 --enable-prefix-caching --trust-remote-code
     deploy:
       resources:
         reservations:
@@ -69,3 +66,4 @@ services:
 
 volumes:
   redis_data:
+  backend_data:

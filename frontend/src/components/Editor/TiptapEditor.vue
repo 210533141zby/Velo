@@ -1,22 +1,14 @@
+
 <script setup lang="ts">
 /**
- * TiptapEditor.vue - 核心富文本编辑器组件
- * 
- * 功能摘要:
- * 本文件是前端编辑器的核心，集成了 Tiptap (一个基于 ProseMirror 的 Headless 编辑器框架)。
- * 它负责：
- * 1. 渲染编辑器 UI (工具栏 + 编辑区域)。
- * 2. 管理编辑器的扩展 (Markdown 支持, 任务列表等)。
- * 3. 处理复杂的交互逻辑 (如 粘贴 Markdown 源码自动解析)。
- * 4. 与 Pinia Store 同步文档内容 (双向绑定)。
- * 
- * 依赖关系:
- * - props.modelValue: 从父组件接收 Markdown 字符串。
- * - useEditorStore: 用于更新全局状态 (字数统计, 光标位置)。
- * - markdown-it: 用于在粘贴时辅助检测和解析 Markdown 语法。
+ * TiptapEditor.vue - 核心富文本编辑器组件 (修复版)
  */
 import { useEditor, EditorContent } from '@tiptap/vue-3'
-import { Extension } from '@tiptap/core'
+import { Extension, Editor } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { EditorView } from '@tiptap/pm/view' // 补充导入
+// @ts-ignore
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from 'tiptap-markdown'
 import Typography from '@tiptap/extension-typography'
@@ -31,36 +23,184 @@ import MarkdownIt from 'markdown-it'
 import taskLists from 'markdown-it-task-lists'
 import { 
   Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, 
-  List, ListOrdered, Quote, Minus, CheckSquare, X
+  List, ListOrdered, Quote, Minus, CheckSquare
 } from 'lucide-vue-next'
+import axios from 'axios'
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits(['update:modelValue'])
 const store = useEditorStore()
-const isComposing = ref(false) // 标记中文输入法状态，防止拼音输入过程中频繁触发更新
+const isComposing = ref(false)
 const md = new MarkdownIt({ html: true, breaks: true })
 md.use(taskLists)
 
+// --- 1. Ghost Text (幽灵文本) 状态管理 ---
+const ghostText = ref('')
+const ghostPos = ref<number | null>(null)
+
+// 独立的 API 调用函数
+const fetchCompletion = async (prefix: string, suffix: string) => {
+  try {
+    const res = await axios.post('/api/v1/completion', {
+      prefix,
+      suffix,
+      language: 'markdown'
+    })
+    return res.data.completion
+  } catch (e) {
+    console.error('[GhostDebug] 请求失败:', e)
+    return ''
+  }
+}
+
+// 独立的 Debounce 函数 (核心补全触发逻辑)
+const triggerCompletion = useDebounceFn(async (editorInstance: Editor) => {
+  if (isComposing.value || !editorInstance) return
+  
+  const { state } = editorInstance
+  const { selection, doc } = state
+  const { from } = selection
+
+  // 上下文截取：前文 1000 字符，后文 200 字符
+  const prefix = doc.textBetween(Math.max(0, from - 1000), from, '\n')
+  const suffix = doc.textBetween(from, Math.min(doc.content.size, from + 200), '\n')
+
+  const completion = await fetchCompletion(prefix, suffix)
+  
+  if (completion) {
+    ghostText.value = completion
+    ghostPos.value = from
+    // 强制触发视图更新，渲染幽灵文字
+    editorInstance.view.dispatch(editorInstance.state.tr)
+  }
+}, 600)
+
+// --- 2. Ghost Text Tiptap Extension ---
+// 定义插件 Key
+const ghostPluginKey = new PluginKey<DecorationSet>('ghostText')
+
+const GhostTextExtension = Extension.create({
+  name: 'ghostText',
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: ghostPluginKey,
+        state: {
+          init() {
+            return DecorationSet.empty
+          },
+          apply(tr) {
+            console.log('[GhostDebug] Extension Apply 触发', { hasGhostText: !!ghostText.value, trDocChanged: tr.docChanged })
+            // 每次文档变更，先清空幽灵文本 (除非是 debounce 刚回来)
+            // 这里我们采用简单策略：只要用户动了文档，就清空 vue ref
+            // 实际渲染完全依赖 vue ref 的状态
+            
+            if (tr.docChanged || tr.selectionSet) {
+               if (ghostText.value) {
+                 ghostText.value = ''
+                 ghostPos.value = null
+                 return DecorationSet.empty
+               }
+            }
+            
+            // 如果 Vue Ref 里有值，就创建 Decoration
+            if (ghostText.value && ghostPos.value !== null) {
+               const widget = document.createElement('span')
+               widget.className = 'ghost-text'
+               widget.textContent = ghostText.value
+               
+               // 创建 Widget Decoration
+               const deco = Decoration.widget(ghostPos.value, widget, {
+                 side: 1
+               })
+               return DecorationSet.create(tr.doc, [deco])
+            }
+            
+            return DecorationSet.empty
+          }
+        },
+        props: {
+          decorations(state) {
+            return ghostPluginKey.getState(state)
+          },
+          handleKeyDown(view: EditorView, event: KeyboardEvent) {
+            // 拦截 Tab 键：采纳
+            if (event.key === 'Tab' && ghostText.value && ghostPos.value !== null) {
+              event.preventDefault()
+              
+              // 插入真实文本
+              const tr = view.state.tr.insertText(ghostText.value, ghostPos.value)
+              view.dispatch(tr)
+              
+              // 清空状态
+              ghostText.value = ''
+              ghostPos.value = null
+              return true
+            }
+            
+            // 拦截 Esc 键：拒绝
+            if (event.key === 'Escape' && ghostText.value) {
+              event.preventDefault()
+              ghostText.value = ''
+              ghostPos.value = null
+              view.dispatch(view.state.tr)
+              return true
+            }
+            
+            return false
+          }
+        }
+      })
+    ]
+  }
+})
+
+// --- 3. Markdown Paste Logic Extension (修复循环引用) ---
+const MarkdownPasteLogic = Extension.create({
+  name: 'markdownPasteLogic',
+  
+  addProseMirrorPlugins() {
+    // 关键修复：使用 (this as any) 绕过 TS 检查
+    const editor = (this as any).editor as Editor
+
+    return [
+      new Plugin({
+        key: new PluginKey('markdownPaste'),
+        props: {
+          handlePaste: (_view, event) => {
+            const text = event.clipboardData?.getData('text/plain')
+            const html = event.clipboardData?.getData('text/html')
+
+            if (text) {
+              // 特征检测 Markdown
+              const isMarkdownLike = /^(\s*#{1,6}\s|\s*>|\s*[-*]\s|\s*\d+\.\s|`{3})/.test(text)
+
+              if (isMarkdownLike && (!html || html.length < text.length * 1.5)) {
+                const parsedHtml = md.render(text)
+                editor.commands.insertContent(parsedHtml)
+                return true
+              }
+            }
+            return false
+          }
+        }
+      })
+    ]
+  }
+})
+
 const debouncedSave = useDebounceFn(() => {
-  // Save logic handled by store or parent usually
+  // Save logic
 }, 1000)
 
-/**
- * 更新编辑器统计信息
- * 
- * Logic Flow:
- * 1. 获取纯文本内容，计算字数 (简单的空格分割)。
- * 2. 获取当前光标位置 (Selection)。
- * 3. 计算光标所在的行号和列号 (通过统计光标前的换行符数量)。
- * 4. 调用 Store Action 更新状态，供底部状态栏显示。
- */
-const updateStats = (editor: any) => {
-  const text = editor.state.doc.textContent
+const updateStats = (editorInstance: Editor) => {
+  const text = editorInstance.state.doc.textContent
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0
   
-  const selection = editor.state.selection
+  const selection = editorInstance.state.selection
   const { from } = selection
-  const textBefore = editor.state.doc.textBetween(0, from, '\n')
+  const textBefore = editorInstance.state.doc.textBetween(0, from, '\n')
   const lines = textBefore.split('\n')
   const line = lines.length
   const col = lines[lines.length - 1].length + 1
@@ -68,11 +208,11 @@ const updateStats = (editor: any) => {
   store.updateStats(wordCount, line, col)
 }
 
+// --- 初始化编辑器 ---
 const editor = useEditor({
-  content: props.modelValue, // 初始化内容
+  content: props.modelValue,
   extensions: [
     StarterKit.configure({ 
-      // 开启所有标题级别支持 (H1-H6)，默认可能只有 H1-H3
       heading: { levels: [1, 2, 3, 4, 5, 6] }, 
     }),
     Markdown.configure({ 
@@ -84,60 +224,37 @@ const editor = useEditor({
     Image, 
     TaskList, 
     TaskItem.configure({ nested: true }),
+    GhostTextExtension,  // 注册 AI 补全插件
+    MarkdownPasteLogic,  // 注册粘贴逻辑插件
   ],  
   editorProps: { 
     attributes: { 
-      // Tailwind Typography (prose) 样式配置
       class: 'prose prose-stone max-w-none focus:outline-none min-h-[calc(100vh-12rem)] px-12 py-10 bg-white shadow-sm mx-auto', 
     }, 
-    /**
-     * handlePaste
-     * 
-     * Why:
-     * 用户可能从 VS Code 或其他 Markdown 编辑器复制一段 Markdown 源码 (如 **Bold**)。
-     * 默认粘贴可能会把它们当成纯文本，或者转义了特殊字符。
-     * 我们需要拦截粘贴，如果发现内容像 Markdown，则强制渲染为 HTML 再插入。
-     */
-    handlePaste: (_view, event) => { 
-      const text = event.clipboardData?.getData('text/plain') 
-      const html = event.clipboardData?.getData('text/html') 
-      
-      // 如果剪贴板里有 HTML，通常优先用 HTML（保留样式）。 
-      // 但如果用户明显是在粘贴一段 Markdown 源码...
-      if (text) { 
-        // 特征检测：行首的 #, >, -, *, 1., ``` 
-        const isMarkdownLike = /^(\s*#{1,6}\s|\s*>|\s*[-*]\s|\s*\d+\.\s|`{3})/.test(text) 
-        
-        // 如果像 Markdown，且 HTML 内容很少（说明不是从富文本编辑器复制的），强制解析 
-        if (isMarkdownLike && (!html || html.length < text.length * 1.5)) { 
-          const parsedHtml = md.render(text) 
-          editor.value?.commands.insertContent(parsedHtml) 
-          return true // 阻止默认行为 
-        } 
-      } 
-      return false 
-    } 
   }, 
   onUpdate: ({ editor }) => { 
-    if (isComposing.value) return 
-    // 获取 Markdown 内容并更新父组件
+    // 1. 无论是否在输入中文，先打印日志证明函数活着 
+    console.log('[GhostDebug] onUpdate 触发', { isComposing: isComposing.value }); 
+ 
+    // 2. 强制执行补全触发器 (移到 isComposing 检查之前!) 
+    triggerCompletion(editor); 
+ 
+    // 3. 原有的数据同步逻辑保持不变 
+    if (isComposing.value) return; 
     const markdown = (editor.storage as any).markdown.getMarkdown() 
     emit('update:modelValue', markdown) 
     store.updateContent(markdown) 
     debouncedSave() 
-    updateStats(editor) 
+    updateStats(editor)
   }, 
   onSelectionUpdate: ({ editor }) => {
     updateStats(editor)
   },
 }) 
 
-// 监听 props.modelValue 变化 (双向绑定)
-// 当父组件 (或 WebSocket) 更新内容时，同步到编辑器
 watch(() => props.modelValue, (newValue) => { 
   if (editor.value) { 
     const currentMarkdown = (editor.value.storage as any).markdown.getMarkdown() 
-    // 只有内容真正变了才 setContent，避免光标跳动
     if (newValue !== currentMarkdown) { 
       editor.value.commands.setContent(newValue) 
     } 
@@ -147,7 +264,7 @@ watch(() => props.modelValue, (newValue) => {
 const onCompositionStart = () => { isComposing.value = true } 
 const onCompositionEnd = () => { isComposing.value = false } 
 
-// --- Toolbar Actions --- 
+// Toolbar Actions
 const toggleBold = () => editor.value?.chain().focus().toggleBold().run() 
 const toggleItalic = () => editor.value?.chain().focus().toggleItalic().run() 
 const toggleStrike = () => editor.value?.chain().focus().toggleStrike().run() 
@@ -158,32 +275,12 @@ const toggleH3 = () => editor.value?.chain().focus().toggleHeading({ level: 3 })
 const toggleBulletList = () => editor.value?.chain().focus().toggleBulletList().run() 
 const toggleOrderedList = () => editor.value?.chain().focus().toggleOrderedList().run() 
 const toggleTaskList = () => editor.value?.chain().focus().toggleTaskList().run() 
-
-/**
- * toggleBlockquote (Smart)
- * 
- * Logic Flow:
- * 1. 检查是否是部分选中文本 (Partial Selection)。
- *    即: 选中了段落的一部分，而不是整个段落。
- * 2. 如果是部分选中:
- *    - 先在选区末尾 (End) 进行分割 (splitBlock)。
- *    - 再在选区开头 (Start) 进行分割 (splitBlock)。
- *    - 这样就把选中的文本“孤立”成了一个独立的 Block。
- *    - 最后对这个独立的 Block 执行 toggleBlockquote。
- * 3. 否则 (全选或光标模式):
- *    - 执行默认的 toggleBlockquote (包裹整个 Block)。
- * 
- * Why:
- * 用户反馈默认的 Blockquote 会把整段话都引用，体验不好。
- * 此逻辑实现了“选中哪句引用哪句”的直观效果。
- */
 const toggleBlockquote = () => {
   if (!editor.value) return
   const { state } = editor.value
   const { selection } = state
   const { $from, $to, empty } = selection
   
-  // 判断是否是单一段落内的部分选中
   const isPartial = !empty && 
                     $from.parent === $to.parent && 
                     $from.parent.isTextblock && 
@@ -191,29 +288,14 @@ const toggleBlockquote = () => {
 
   if (isPartial) {
     const chain = editor.value.chain().focus()
-    
-    // 1. 如果没选到末尾，先在末尾切一刀
-    if ($to.parentOffset < $to.parent.content.size) {
-      chain.setTextSelection($to.pos).splitBlock()
-    }
-    
-    // 2. 如果没选到开头，再在开头切一刀
-    if ($from.parentOffset > 0) {
-      chain.setTextSelection($from.pos).splitBlock()
-    } else {
-      // 如果开头是顶格的，但刚才切了末尾，光标可能跑到了下一段，需要归位
-      chain.setTextSelection($from.pos)
-    }
-    
-    // 3. 对当前独立的 Block 进行引用
+    if ($to.parentOffset < $to.parent.content.size) chain.setTextSelection($to.pos).splitBlock()
+    if ($from.parentOffset > 0) chain.setTextSelection($from.pos).splitBlock()
+    else chain.setTextSelection($from.pos)
     chain.toggleBlockquote().run()
     return
   }
-
-  // 默认行为
   editor.value.chain().focus().toggleBlockquote().run()
 }
-
 const setHorizontalRule = () => editor.value?.chain().focus().setHorizontalRule().run() 
 
 onBeforeUnmount(() => editor.value?.destroy())
@@ -221,7 +303,6 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 <template>
   <div class="flex flex-col h-full w-full bg-[#F9F9F9] relative overflow-hidden">
-    <!-- Toolbar -->
     <div v-if="editor" class="flex items-center justify-center p-2 border-b border-stone-200 bg-white z-10 shadow-sm flex-shrink-0">
       <div class="flex items-center gap-1 overflow-x-auto max-w-5xl w-full px-2">
         <button @click="toggleBold" :class="{ 'bg-stone-100 text-stone-900': editor.isActive('bold') }" class="p-1.5 rounded hover:bg-stone-100 text-stone-500" title="加粗">
@@ -276,7 +357,6 @@ onBeforeUnmount(() => editor.value?.destroy())
         />
       </div>
     </div>
-
   </div>
 </template>
 
@@ -285,4 +365,22 @@ onBeforeUnmount(() => editor.value?.destroy())
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e5e5; border-radius: 3px; }
 .rotate-90 { transform: rotate(90deg); }
+
+/* Ghost Text (幽灵文本) 样式 */
+.ghost-text {
+  color: #adb5bd; /* 灰色 */
+  font-style: italic;
+  pointer-events: none;
+}
+/* Tab 提示 */
+.ghost-text::after {
+  content: 'Tab';
+  font-size: 0.7em;
+  background: #e9ecef;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 4px;
+  color: #6c757d;
+  vertical-align: middle;
+}
 </style>
