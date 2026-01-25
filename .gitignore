@@ -4,8 +4,6 @@ __pycache__/
 *$py.class
 venv/
 .env
-*.db
-*.sqlite3
 logs/
 *.log
 
@@ -29,10 +27,11 @@ vercel.json
 # OS
 Thumbs.db
 
+# LLM
+models/
+
 # AI / Tools
 .trae/
 .trae
 .lingma/
 .lingma
-backend/chroma_db/
-backend/wiki.db

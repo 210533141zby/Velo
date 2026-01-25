@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # === 后端服务 (热重载模式) ===
   backend:
     build: ./backend
     container_name: metis_backend
@@ -11,19 +12,21 @@ services:
       - POSTGRES_SERVER=sqlite
       - VLLM_API_URL=http://vllm:8000/v1
       - REDIS_HOST=redis
+      # 告诉程序数据在这个路径
+      - DATA_DIR=/app/data
     volumes:
+      # 【核心设计】挂载整个 backend 目录
+      # 1. 你的代码修改会立即生效
+      # 2. 你的 backend/data 目录会自动映射进容器
       - ./backend:/app
-      - backend_data:/app/data
     depends_on:
       - redis
       - vllm
-    # 移除 host 模式，加入默认网络以便与 redis/frontend 通信
-    # network_mode: "host" 
+    # 启动命令保持 reload 以便开发
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # === Frontend Service ===
+  # === 前端服务 ===
   frontend:
-    # image: swze/metis-frontend:latest
     build: ./frontend
     container_name: metis_frontend
     restart: always
@@ -32,7 +35,7 @@ services:
     depends_on:
       - backend
 
-  # === Redis Service ===
+  # === Redis 缓存 ===
   redis:
     image: redis:7-alpine
     container_name: metis_redis
@@ -40,10 +43,7 @@ services:
     volumes:
       - redis_data:/data
 
-  # === vLLM Service (Large Language Model) ===
-  # 官方高性能推理引擎，不需要自己构建镜像
-  # === vLLM Service ===
-  # === vLLM Service ===
+  # === vLLM 推理引擎 (全显卡兼容版) ===
   vllm:
     image: vllm/vllm-openai:v0.6.2
     container_name: metis_vllm
@@ -51,11 +51,25 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+      # 兼容性保险：防止 V100 通信库报错
+      - VLLM_NCCL_SO_PATH=/usr/lib/x86_64-linux-gnu/libnccl.so.2
     volumes:
-      - ~/.cache/huggingface:/root/.cache/huggingface
-    # === 针对 3090 和方案优化后的启动参数 ===
-    command: --model Qwen/Qwen2.5-Coder-14B-Instruct-AWQ --quantization awq --dtype half --gpu-memory-utilization 0.95 --max-model-len 32768 --enable-prefix-caching --trust-remote-code
+      # 【核心设计】挂载 models 文件夹
+      # 以后下载模型直接丢进 Velo/models 目录即可
+      - ./models:/models
+    # === 启动命令 ===
+    # 1. 使用 GPTQ (3090/V100 通吃)
+    # 2. 显存利用率 0.9 (V100 32G 和 3090 24G 都够用)
+    # 3. 长度 8192 (保证稳定不爆显存)
+    command: >
+      --model /models/Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4
+      --served-model-name Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4
+      --quantization gptq
+      --dtype half
+      --gpu-memory-utilization 0.9
+      --max-model-len 8192
+      --trust-remote-code
+      --enforce-eager
     deploy:
       resources:
         reservations:
@@ -66,4 +80,3 @@ services:
 
 volumes:
   redis_data:
-  backend_data:
