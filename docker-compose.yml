@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # === 后端服务 (热重载模式) ===
   backend:
     build: ./backend
     container_name: metis_backend
@@ -12,20 +11,18 @@ services:
       - POSTGRES_SERVER=sqlite
       - VLLM_API_URL=http://vllm:8000/v1
       - REDIS_HOST=redis
-      # 告诉程序数据在这个路径
+      
       - DATA_DIR=/app/data
     volumes:
-      # 【核心设计】挂载整个 backend 目录
-      # 1. 你的代码修改会立即生效
-      # 2. 你的 backend/data 目录会自动映射进容器
+      
       - ./backend:/app
     depends_on:
       - redis
       - vllm
-    # 启动命令保持 reload 以便开发
+   
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # === 前端服务 ===
+ 
   frontend:
     build: ./frontend
     container_name: metis_frontend
@@ -35,7 +32,7 @@ services:
     depends_on:
       - backend
 
-  # === Redis 缓存 ===
+ 
   redis:
     image: redis:7-alpine
     container_name: metis_redis
@@ -43,26 +40,22 @@ services:
     volumes:
       - redis_data:/data
 
-  # === vLLM 推理引擎 (全显卡兼容版) ===
+
   vllm:
     image: vllm/vllm-openai:v0.6.2
     container_name: metis_vllm
     restart: always
+    privileged: true
     ports:
       - "8001:8000"
     environment:
-      # 兼容性保险：防止 V100 通信库报错
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
       - VLLM_NCCL_SO_PATH=/usr/lib/x86_64-linux-gnu/libnccl.so.2
     volumes:
-      # 【核心设计】挂载 models 文件夹
-      # 以后下载模型直接丢进 Velo/models 目录即可
       - ./models:/models
-    # === 启动命令 ===
-    # 1. 使用 GPTQ (3090/V100 通吃)
-    # 2. 显存利用率 0.9 (V100 32G 和 3090 24G 都够用)
-    # 3. 长度 8192 (保证稳定不爆显存)
     command: >
-      --model /models/Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4
+      --model /models/Qwen/Qwen2___5-Coder-14B-Instruct-GPTQ-Int4
       --served-model-name Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4
       --quantization gptq
       --dtype half
