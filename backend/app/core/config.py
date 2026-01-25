@@ -54,7 +54,10 @@ class Settings(BaseSettings):
             上线的时候配上环境变量，就能无缝切换到生产级数据库。
         """
         if self.POSTGRES_SERVER == "sqlite" or not self.POSTGRES_SERVER:
-            return "sqlite+aiosqlite:///./wiki.db"
+            # 确保使用 data 目录下的数据库文件
+            data_dir = os.getenv("DATA_DIR", "./data")
+            os.makedirs(data_dir, exist_ok=True)
+            return f"sqlite+aiosqlite:///{data_dir}/wiki.db"
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
     
     # =========================================================================
