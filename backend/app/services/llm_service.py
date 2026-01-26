@@ -101,7 +101,7 @@ async def complete_text(prefix: str, suffix: str) -> str:
     # 3. 构造请求载荷
     payload = {
         # 必须与 docker-compose 里的模型名一致
-        "model": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+        "model": "Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-Int4",
         "prompt": prompt,
         "max_tokens": 24,
         "temperature": 0.1,
