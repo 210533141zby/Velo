@@ -282,7 +282,27 @@ const editor = useEditor({
   editorProps: { 
     attributes: { 
       class: 'prose prose-stone max-w-none focus:outline-none min-h-[calc(100vh-12rem)] px-12 py-10 bg-white shadow-sm mx-auto', 
-    }, 
+    },
+    // 处理中文输入法选词结束
+    handleDOMEvents: {
+      compositionend: (view, event) => {
+        // 1. 立即标记状态为非输入中
+        isComposing.value = false
+        console.log('[GhostDebug] Composition End Triggered')
+        
+        // 2. 强制触发一次补全检查 (延时一小会儿确保 DOM 已更新)
+        setTimeout(() => {
+          handleAutoCompletion(editor.value as Editor)
+        }, 0)
+        
+        return false // 不阻止默认行为
+      },
+      compositionstart: (view, event) => {
+        isComposing.value = true
+        console.log('[GhostDebug] Composition Start Triggered')
+        return false
+      }
+    }
   }, 
   onUpdate: ({ editor }) => { 
     // 1. 无论是否在输入中文，先打印日志证明函数活着 
@@ -315,9 +335,6 @@ watch(() => props.modelValue, (newValue) => {
   } 
 }) 
 
-const onCompositionStart = () => { isComposing.value = true } 
-const onCompositionEnd = () => { isComposing.value = false } 
-
 // Toolbar Actions
 const toggleBold = () => editor.value?.chain().focus().toggleBold().run() 
 const toggleItalic = () => editor.value?.chain().focus().toggleItalic().run() 
@@ -329,27 +346,7 @@ const toggleH3 = () => editor.value?.chain().focus().toggleHeading({ level: 3 })
 const toggleBulletList = () => editor.value?.chain().focus().toggleBulletList().run() 
 const toggleOrderedList = () => editor.value?.chain().focus().toggleOrderedList().run() 
 const toggleTaskList = () => editor.value?.chain().focus().toggleTaskList().run() 
-const toggleBlockquote = () => {
-  if (!editor.value) return
-  const { state } = editor.value
-  const { selection } = state
-  const { $from, $to, empty } = selection
-  
-  const isPartial = !empty && 
-                    $from.parent === $to.parent && 
-                    $from.parent.isTextblock && 
-                    ($from.parentOffset > 0 || $to.parentOffset < $from.parent.content.size)
-
-  if (isPartial) {
-    const chain = editor.value.chain().focus()
-    if ($to.parentOffset < $to.parent.content.size) chain.setTextSelection($to.pos).splitBlock()
-    if ($from.parentOffset > 0) chain.setTextSelection($from.pos).splitBlock()
-    else chain.setTextSelection($from.pos)
-    chain.toggleBlockquote().run()
-    return
-  }
-  editor.value.chain().focus().toggleBlockquote().run()
-}
+const toggleBlockquote = () => editor.value?.chain().focus().toggleBlockquote().run() 
 const setHorizontalRule = () => editor.value?.chain().focus().setHorizontalRule().run() 
 
 onBeforeUnmount(() => editor.value?.destroy())
@@ -406,8 +403,6 @@ onBeforeUnmount(() => editor.value?.destroy())
         <editor-content
           :editor="editor"
           class="h-full"
-          @compositionstart="onCompositionStart"
-          @compositionend="onCompositionEnd"
         />
       </div>
     </div>
