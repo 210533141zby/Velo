@@ -53,27 +53,58 @@ const fetchCompletion = async (prefix: string, suffix: string) => {
   }
 }
 
-// 独立的 Debounce 函数 (核心补全触发逻辑)
-const triggerCompletion = useDebounceFn(async (editorInstance: Editor) => {
-  if (isComposing.value || !editorInstance) return
-  
-  const { state } = editorInstance
-  const { selection, doc } = state
-  const { from } = selection
+// 独立的 Debounce Timer 变量
+let completionTimer: ReturnType<typeof setTimeout> | null = null
 
+// 核心补全执行逻辑 (复用)
+const triggerCoreCompletion = async (editorInstance: Editor) => {
+  if (isComposing.value || !editorInstance) return
+
+  const { state } = editorInstance
+  const currentFrom = state.selection.from
+  
   // 上下文截取：前文 1000 字符，后文 200 字符
-  const prefix = doc.textBetween(Math.max(0, from - 1000), from, '\n')
-  const suffix = doc.textBetween(from, Math.min(doc.content.size, from + 200), '\n')
+  const prefix = state.doc.textBetween(Math.max(0, currentFrom - 1000), currentFrom, '\n')
+  const suffix = state.doc.textBetween(currentFrom, Math.min(state.doc.content.size, currentFrom + 200), '\n')
 
   const completion = await fetchCompletion(prefix, suffix)
   
   if (completion) {
     ghostText.value = completion
-    ghostPos.value = from
+    ghostPos.value = currentFrom
     // 强制触发视图更新，渲染幽灵文字
     editorInstance.view.dispatch(editorInstance.state.tr)
   }
-}, 600)
+}
+
+// 动态防抖补全触发逻辑 (统一处理入口)
+const handleAutoCompletion = (editorInstance: Editor) => {
+  if (isComposing.value || !editorInstance) return
+
+  // 1. 清除旧定时器 (防抖核心)
+  if (completionTimer) clearTimeout(completionTimer)
+
+  // 2. 获取编辑器状态
+  const { state } = editorInstance
+  const { selection, doc } = state
+  const { from } = selection
+
+  // 3. 动态延迟判定
+  // 检查光标后 50 个字符，如果全是空白，则认为在文末 (Append Mode)
+  const suffixCheck = doc.textBetween(from, Math.min(doc.content.size, from + 50), '\n')
+  const isAtEnd = !suffixCheck.trim()
+  
+  // NEW RULE: 只有文末才自动触发，文中必须手动触发
+  if (!isAtEnd) return
+
+  // 文末极速模式：250ms
+  const delay = 250
+
+  // 4. 启动新定时器
+  completionTimer = setTimeout(() => {
+    triggerCoreCompletion(editorInstance)
+  }, delay)
+}
 
 // --- 2. Ghost Text Tiptap Extension ---
 // 定义插件 Key
@@ -82,7 +113,11 @@ const ghostPluginKey = new PluginKey<DecorationSet>('ghostText')
 const GhostTextExtension = Extension.create({
   name: 'ghostText',
 
+  // 移除 addKeyboardShortcuts，改用 handleKeyDown 统一处理
   addProseMirrorPlugins() {
+    // 捕获 Tiptap Editor 实例
+    const editorInstance = this.editor
+
     return [
       new Plugin({
         key: ghostPluginKey,
@@ -91,11 +126,8 @@ const GhostTextExtension = Extension.create({
             return DecorationSet.empty
           },
           apply(tr) {
-            console.log('[GhostDebug] Extension Apply 触发', { hasGhostText: !!ghostText.value, trDocChanged: tr.docChanged })
+            // console.log('[GhostDebug] Extension Apply 触发', { hasGhostText: !!ghostText.value, trDocChanged: tr.docChanged })
             // 每次文档变更，先清空幽灵文本 (除非是 debounce 刚回来)
-            // 这里我们采用简单策略：只要用户动了文档，就清空 vue ref
-            // 实际渲染完全依赖 vue ref 的状态
-            
             if (tr.docChanged || tr.selectionSet) {
                if (ghostText.value) {
                  ghostText.value = ''
@@ -125,7 +157,27 @@ const GhostTextExtension = Extension.create({
             return ghostPluginKey.getState(state)
           },
           handleKeyDown(view: EditorView, event: KeyboardEvent) {
-            // 拦截 Tab 键：采纳
+            // 1. 手动触发快捷键 (Mod+Alt / Ctrl+Alt / Mod+Space)
+            const isMod = event.ctrlKey || event.metaKey
+            const isAlt = event.altKey
+            
+            // 方案 A: Mod + Alt
+            if (isMod && isAlt) {
+              console.log('[GhostDebug] Manual Trigger: Mod+Alt')
+              event.preventDefault()
+              triggerCoreCompletion(editorInstance)
+              return true
+            }
+
+            // 方案 B: Mod + Space (备选)
+            if (isMod && event.code === 'Space') {
+              console.log('[GhostDebug] Manual Trigger: Mod+Space')
+              event.preventDefault()
+              triggerCoreCompletion(editorInstance)
+              return true
+            }
+
+            // 2. 拦截 Tab 键：采纳
             if (event.key === 'Tab' && ghostText.value && ghostPos.value !== null) {
               event.preventDefault()
               
@@ -139,7 +191,7 @@ const GhostTextExtension = Extension.create({
               return true
             }
             
-            // 拦截 Esc 键：拒绝
+            // 3. 拦截 Esc 键：拒绝
             if (event.key === 'Escape' && ghostText.value) {
               event.preventDefault()
               ghostText.value = ''
@@ -237,7 +289,7 @@ const editor = useEditor({
     console.log('[GhostDebug] onUpdate 触发', { isComposing: isComposing.value }); 
  
     // 2. 强制执行补全触发器 (移到 isComposing 检查之前!) 
-    triggerCompletion(editor); 
+    handleAutoCompletion(editor); 
  
     // 3. 原有的数据同步逻辑保持不变 
     if (isComposing.value) return; 
@@ -248,6 +300,8 @@ const editor = useEditor({
     updateStats(editor)
   }, 
   onSelectionUpdate: ({ editor }) => {
+    // 光标移动也触发补全逻辑 (关键新增)
+    handleAutoCompletion(editor)
     updateStats(editor)
   },
 }) 
