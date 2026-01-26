@@ -46,7 +46,6 @@ services:
     image: vllm/vllm-openai:v0.6.2
     container_name: metis_vllm
     restart: always
-    privileged: true
     ports:
       - "8001:8000"
     environment:
