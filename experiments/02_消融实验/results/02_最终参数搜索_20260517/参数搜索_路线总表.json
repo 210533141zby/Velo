@@ -1,0 +1,46 @@
+[
+  {
+    "variant": "base_router_4_6",
+    "label": "当前最佳 4/6 + 路由",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.5219,
+    "integration_focus_f1": 0.6406,
+    "integration_quality": 0.7032,
+    "complex_quality": 0.7032,
+    "p50": 4017.88
+  },
+  {
+    "variant": "task_aligned_4_6",
+    "label": "当前最佳 4/6 + 强制对齐",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.5175,
+    "integration_focus_f1": 0.6156,
+    "integration_quality": 0.6936,
+    "complex_quality": 0.6936,
+    "p50": 2510.53
+  },
+  {
+    "variant": "router_5_7",
+    "label": "当前最佳 5/7 + 路由",
+    "hit1": 0.9,
+    "hit3": 1.0,
+    "integration_string_similarity": 0.5282,
+    "integration_focus_f1": 0.6034,
+    "integration_quality": 0.6896,
+    "complex_quality": 0.6896,
+    "p50": 4447.68
+  },
+  {
+    "variant": "task_aligned_5_7",
+    "label": "当前最佳 5/7 + 强制对齐",
+    "hit1": 0.9,
+    "hit3": 1.0,
+    "integration_string_similarity": 0.5218,
+    "integration_focus_f1": 0.5868,
+    "integration_quality": 0.6828,
+    "complex_quality": 0.6828,
+    "p50": 2609.73
+  }
+]

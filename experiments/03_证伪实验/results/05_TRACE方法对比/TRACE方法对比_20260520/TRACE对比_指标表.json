@@ -1,0 +1,28 @@
+[
+  {
+    "variant": "ours_router_4_6",
+    "label": "Ours（分项重排 + 覆盖取证 + 按题作答）",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.5138,
+    "integration_focus_f1": 0.5809,
+    "integration_quality": 0.6751,
+    "complex_quality": 0.6751,
+    "latency_p50_ms": 3557.47,
+    "latency_p95_ms": 7832.38
+  },
+  {
+    "variant": "trace_method_4_6",
+    "label": "TRACE 方法（透明三段式生成）",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.4656,
+    "integration_focus_f1": 0.4886,
+    "integration_quality": 0.647,
+    "complex_quality": 0.647,
+    "latency_p50_ms": 7438.45,
+    "latency_p95_ms": 8980.31
+  }
+]

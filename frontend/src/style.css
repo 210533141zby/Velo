@@ -1,0 +1,168 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Editorial Palette */
+  --color-primary: #D06847;
+  --color-primary-hover: #B55739;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #F7F7F7;
+  --color-text-main: #171717;
+  --color-text-sub: #737373;
+  --color-border-line: #F5F5F5;
+}
+
+@layer utilities {
+  /* Forced overrides */
+  .bg-primary { background-color: var(--color-primary) !important; }
+  .text-primary { color: var(--color-primary) !important; }
+  .border-primary { border-color: var(--color-primary) !important; }
+  
+  .bg-surface { background-color: #FFFFFF !important; }
+  .bg-surface-subtle { background-color: #F7F7F7 !important; }
+  .text-main { color: var(--color-text-main) !important; }
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #FFFFFF;
+  color: var(--color-text-main);
+}
+
+/* Custom scrollbar - Minimalist */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.05); /* Lighter scrollbar */
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.15);
+}
+
+/* --- Task List 终极修复 --- */
+ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start; /* 关键：顶部对齐，防止多行文本时框框跑偏 */
+  margin-bottom: 0.25rem;
+}
+
+/* 复选框容器 */
+ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.75rem;
+  user-select: none;
+  /* 视觉微调：根据字体大小(通常16px)和行高，往下挪一点点，实现视觉居中 */
+  margin-top: 0.3em;
+}
+
+/* 复选框本体 */
+ul[data-type="taskList"] li > label input[type="checkbox"] {
+  appearance: none;
+  background-color: #fff;
+  margin: 0;
+  cursor: pointer;
+  width: 1.1em;
+  height: 1.1em;
+  border: 2px solid #d1d5db; /* gray-300 */
+  border-radius: 0.25em;
+  display: grid;
+  place-content: center;
+  transition: all 0.2s ease-in-out;
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em white;
+  transform-origin: center;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+  background-color: #D06847; /* 陶土色 */
+  border-color: #D06847;
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+/* 文本内容区域 - 关键修复：必须占满剩余空间 */
+ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0; /* 防止溢出 */
+  margin: 0; /* 移除 p 标签默认 margin */
+}
+
+/* 针对 Tiptap 内部 p 标签的修正 */
+ul[data-type="taskList"] li > div > p {
+  margin: 0;
+  line-height: 1.6; /* 保持与其他文本一致 */
+}
+
+/* --- 核心样式精修 --- */
+
+/* 1. 精修引用 (Blockquote) - 极致压缩版 */
+.prose blockquote {
+  font-style: normal;
+  font-weight: 400;
+  border-left-width: 3px;
+  border-left-color: #D06847; /* 陶土色 */
+  background-color: #fffbf7; /* 极淡的暖色背景 */
+  /* 极致压缩 padding，靠 line-height 撑开即可 */
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  color: #57534e; /* stone-600 */
+  quotes: none;
+  margin: 0.75rem 0; /* 减小外部间距 */
+  line-height: 1.6; /* 保持可读性 */
+}
+
+/* 关键：强制去除引用内部 p 标签的所有垂直 margin */
+.prose blockquote p {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* 2. 精修代码块 (Code Block) - Typora 风格 (GitHub Light Theme) */
+.prose pre {
+  background-color: #f6f8fa; /* GitHub 浅灰背景 */
+  border-radius: 6px; /* 更圆润一点 */
+  padding: 1rem; /* 舒适的内边距 */
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid #d0d7de; /* 极淡的边框 */
+  box-shadow: none; /* 去除阴影 */
+}
+
+.prose pre code {
+  background-color: transparent;
+  color: #24292f; /* GitHub 深色文字 */
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.875rem; /* 14px */
+  padding: 0;
+  border: none;
+  font-weight: 500; /* 稍微加粗一点点，更清晰 */
+  line-height: 1.5;
+}

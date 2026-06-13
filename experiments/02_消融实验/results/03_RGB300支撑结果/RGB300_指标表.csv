@@ -1,0 +1,4 @@
+variant,dataset,faithfulness,answer_correctness,answer_relevancy,context_precision,ragas_sample_count,accuracy,retrieval_hit_rate_at_1,retrieval_hit_rate_at_3,latency_p50_ms,latency_p95_ms,sample_count,label,candidate_top_k,delta_accuracy_vs_prev,delta_retrieval_hit_rate_at_1_vs_prev,delta_retrieval_hit_rate_at_3_vs_prev,delta_answer_relevancy_vs_prev
+baseline_rrf_rerank_direct,rgb,0.0,0.0,0.0,0.0,0,0.9733,0.9233,0.9867,817.41,1554.32,300,基线（Dense + BM25 -> RRF -> Rerank -> Direct Answer）,20,baseline,baseline,baseline,baseline
+enhanced_dual_snippet_direct,rgb,0.0,0.0,0.0,0.0,0,0.97,0.9233,0.9867,221.34,322.25,300,增强检索（双片段证据保留）,20,-0.0033,+0.0000,+0.0000,+0.0000
+ours_task_aligned_ms2,rgb,0.0,0.0,0.0,0.0,0,0.9633,0.9233,0.9867,770.12,1696.66,300,Ours（+ Dual-Snippet Rerank + Aspect-Aware Rerank V2 + Task-对齐作答 Answer）,20,-0.0067,+0.0000,+0.0000,+0.0000

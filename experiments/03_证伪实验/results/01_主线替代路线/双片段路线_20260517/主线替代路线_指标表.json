@@ -1,0 +1,67 @@
+[
+  {
+    "variant": "baseline_rrf_rerank_direct",
+    "label": "基线",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.875,
+    "retrieval_hit_rate_at_3": 1.0,
+    "integration_string_similarity": 0.4469,
+    "integration_focus_f1": 0.4641,
+    "integration_quality": 0.6252,
+    "complex_quality": 0.6252,
+    "latency_p50_ms": 5635.47,
+    "latency_p95_ms": 11903.83
+  },
+  {
+    "variant": "dual_snippet_direct",
+    "label": "基线 + 双片段证据保留",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.4043,
+    "integration_focus_f1": 0.4344,
+    "integration_quality": 0.595,
+    "complex_quality": 0.595,
+    "latency_p50_ms": 6149.67,
+    "latency_p95_ms": 8853.27
+  },
+  {
+    "variant": "dual_snippet_aspect_rerank_direct",
+    "label": "基线 + 双片段证据保留 + 分项重排",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.95,
+    "integration_string_similarity": 0.4216,
+    "integration_focus_f1": 0.462,
+    "integration_quality": 0.6092,
+    "complex_quality": 0.6092,
+    "latency_p50_ms": 4245.88,
+    "latency_p95_ms": 8304.92
+  },
+  {
+    "variant": "dual_snippet_aspect_cover_direct",
+    "label": "基线 + 双片段证据保留 + 分项重排 + 覆盖取证",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.423,
+    "integration_focus_f1": 0.4202,
+    "integration_quality": 0.5997,
+    "complex_quality": 0.5997,
+    "latency_p50_ms": 7053.98,
+    "latency_p95_ms": 9368.15
+  },
+  {
+    "variant": "dual_snippet_aspect_cover_router",
+    "label": "基线 + 双片段证据保留 + 分项重排 + 覆盖取证 + 按题作答",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.4909,
+    "integration_focus_f1": 0.5276,
+    "integration_quality": 0.6577,
+    "complex_quality": 0.6577,
+    "latency_p50_ms": 5516.12,
+    "latency_p95_ms": 7160.06
+  }
+]

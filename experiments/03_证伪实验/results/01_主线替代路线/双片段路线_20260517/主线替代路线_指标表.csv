@@ -1,0 +1,6 @@
+variant,label,sample_count,retrieval_hit_rate_at_1,retrieval_hit_rate_at_3,integration_string_similarity,integration_focus_f1,integration_quality,complex_quality,latency_p50_ms,latency_p95_ms
+baseline_rrf_rerank_direct,基线,40,0.875,1.0,0.4469,0.4641,0.6252,0.6252,5635.47,11903.83
+dual_snippet_direct,基线 + 双片段证据保留,40,0.9,0.975,0.4043,0.4344,0.595,0.595,6149.67,8853.27
+dual_snippet_aspect_rerank_direct,基线 + 双片段证据保留 + 分项重排,40,0.9,0.95,0.4216,0.462,0.6092,0.6092,4245.88,8304.92
+dual_snippet_aspect_cover_direct,基线 + 双片段证据保留 + 分项重排 + 覆盖取证,40,0.9,0.975,0.423,0.4202,0.5997,0.5997,7053.98,9368.15
+dual_snippet_aspect_cover_router,基线 + 双片段证据保留 + 分项重排 + 覆盖取证 + 按题作答,40,0.9,0.975,0.4909,0.5276,0.6577,0.6577,5516.12,7160.06

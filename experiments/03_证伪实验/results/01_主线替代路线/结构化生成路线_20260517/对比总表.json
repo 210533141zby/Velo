@@ -1,0 +1,35 @@
+[
+  {
+    "variant": "aspect_cover_router",
+    "label": "当前最佳",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.5133,
+    "integration_focus_f1": 0.567,
+    "integration_quality": 0.6707,
+    "complex_quality": 0.6707,
+    "p50": 3912.88
+  },
+  {
+    "variant": "aspect_cover_clause_guided",
+    "label": "当前最佳 + 模板引导",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.4857,
+    "integration_focus_f1": 0.4982,
+    "integration_quality": 0.6546,
+    "complex_quality": 0.6546,
+    "p50": 5759.04
+  },
+  {
+    "variant": "aspect_cover_support_table",
+    "label": "当前最佳 + 支持表综合",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.4441,
+    "integration_focus_f1": 0.5324,
+    "integration_quality": 0.6492,
+    "complex_quality": 0.6492,
+    "p50": 3207.83
+  }
+]

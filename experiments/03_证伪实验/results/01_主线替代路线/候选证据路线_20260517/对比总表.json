@@ -1,0 +1,35 @@
+[
+  {
+    "variant": "aspect_cover_router",
+    "label": "当前最佳",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.5111,
+    "integration_focus_f1": 0.6118,
+    "integration_quality": 0.6884,
+    "complex_quality": 0.6884,
+    "p50": 3758.47
+  },
+  {
+    "variant": "aspect_cover_router_labeled",
+    "label": "当前最佳 + 证据标注",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.4055,
+    "integration_focus_f1": 0.4904,
+    "integration_quality": 0.5889,
+    "complex_quality": 0.5889,
+    "p50": 3694.41
+  },
+  {
+    "variant": "aspect_cover_router_window",
+    "label": "当前最佳 + 局部窗口重写",
+    "hit1": 0.9,
+    "hit3": 0.975,
+    "integration_string_similarity": 0.4175,
+    "integration_focus_f1": 0.4764,
+    "integration_quality": 0.6002,
+    "complex_quality": 0.6002,
+    "p50": 3746.75
+  }
+]

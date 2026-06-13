@@ -1,0 +1,54 @@
+[
+  {
+    "variant": "baseline_rrf_rerank_direct",
+    "label": "基线",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.875,
+    "retrieval_hit_rate_at_3": 1.0,
+    "integration_string_similarity": 0.4583,
+    "integration_focus_f1": 0.486,
+    "integration_quality": 0.6356,
+    "complex_quality": 0.6356,
+    "latency_p50_ms": 5508.67,
+    "latency_p95_ms": 7591.22
+  },
+  {
+    "variant": "aspect_rerank_direct",
+    "label": "基线 + 分项重排",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.85,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.4581,
+    "integration_focus_f1": 0.5184,
+    "integration_quality": 0.6422,
+    "complex_quality": 0.6422,
+    "latency_p50_ms": 2822.88,
+    "latency_p95_ms": 6574.36
+  },
+  {
+    "variant": "aspect_cover_direct",
+    "label": "基线 + 分项重排 + 覆盖取证",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.4436,
+    "integration_focus_f1": 0.5186,
+    "integration_quality": 0.6393,
+    "complex_quality": 0.6393,
+    "latency_p50_ms": 5552.51,
+    "latency_p95_ms": 7565.67
+  },
+  {
+    "variant": "aspect_cover_router",
+    "label": "基线 + 分项重排 + 覆盖取证 + 按题作答",
+    "sample_count": 40,
+    "retrieval_hit_rate_at_1": 0.9,
+    "retrieval_hit_rate_at_3": 0.975,
+    "integration_string_similarity": 0.5037,
+    "integration_focus_f1": 0.5809,
+    "integration_quality": 0.676,
+    "complex_quality": 0.676,
+    "latency_p50_ms": 4150.51,
+    "latency_p95_ms": 6689.48
+  }
+]

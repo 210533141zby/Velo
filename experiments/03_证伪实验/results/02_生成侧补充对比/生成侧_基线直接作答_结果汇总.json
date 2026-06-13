@@ -1,0 +1,47 @@
+{
+  "case_ids": [
+    "questanswer_2docs_002",
+    "questanswer_2docs_003",
+    "questanswer_2docs_005",
+    "questanswer_2docs_006",
+    "questanswer_2docs_008",
+    "questanswer_3docs_003",
+    "questanswer_3docs_004",
+    "questanswer_3docs_006"
+  ],
+  "summaries": [
+    {
+      "variant": "baseline_rrf_rerank_direct",
+      "dataset": "crud",
+      "faithfulness": 0.0,
+      "answer_correctness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_precision": 0.0,
+      "ragas_sample_count": 0,
+      "accuracy": 0.0,
+      "qa_accuracy": 0.0,
+      "retrieval_hit_rate_at_1": 0.875,
+      "retrieval_hit_rate_at_3": 1.0,
+      "qa_faithfulness": 0.0,
+      "qa_answer_correctness": 0.0,
+      "qa_answer_relevancy": 0.0,
+      "qa_context_precision": 0.0,
+      "qa_ragas_sample_count": 0,
+      "multidoc_faithfulness": 0.0,
+      "multidoc_answer_correctness": 0.0,
+      "multidoc_answer_relevancy": 0.0,
+      "multidoc_context_precision": 0.0,
+      "multidoc_ragas_sample_count": 0,
+      "overall_similarity": 0.5264,
+      "summary_similarity": 0.0,
+      "noise_robustness": 0.0,
+      "negative_rejection": 0.0,
+      "information_integration": 0.0,
+      "integration_similarity": 0.5264,
+      "latency_p50_ms": 3004.6,
+      "latency_p95_ms": 6683.59,
+      "sample_count": 8,
+      "label": "基线"
+    }
+  ]
+}
